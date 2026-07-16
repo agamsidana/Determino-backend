@@ -14,8 +14,32 @@ export class UserService {
         return user;
     }
 
+    async findUserWithProfileById(id:string){
+        const user = await this.userRepository.findOne({
+            where:{
+                id
+            },
+            relations:{
+                profile:true
+            }
+        });
+
+        return user;
+    }
+
     async findUserByEmail(email: string) {
         const user = await this.userRepository.findOneBy({ email });
+        return user;
+    }
+
+    async findUserByEmailWithCredentials(email:string){
+        const user = this.userRepository
+            .createQueryBuilder('user')
+            .addSelect('user.password')
+            .leftJoinAndSelect('user.profile', 'profile')
+            .where('user.email=:email',{email})
+            .getOne();
+
         return user;
     }
 

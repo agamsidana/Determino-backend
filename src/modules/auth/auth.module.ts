@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { UserModule } from '../user/user.module';
 import { ProfileModule } from '../profile/profile.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 console.log('JWT_SECRET:', process.env.JWT_SECRET);
 
@@ -23,7 +24,7 @@ console.log('JWT_SECRET:', process.env.JWT_SECRET);
     UserModule,
     ProfileModule
   ],
-  providers: [AuthService],
+  providers: [AuthService,JwtStrategy],
   controllers: [AuthController]
 })
 export class AuthModule { }

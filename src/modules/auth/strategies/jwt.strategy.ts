@@ -7,25 +7,25 @@ import { USER_MESSAGES } from "src/shared/constants/messages/user.messages";
 import { JwtPayload } from "../interfaces/jwt-payload.interface";
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy){
+export class JwtStrategy extends PassportStrategy(Strategy) {
 
     constructor(
         private readonly userService: UserService,
         private readonly configService: ConfigService
-    ){
-        
+    ) {
+
         super({
-            jwtFromRequest:ExtractJwt.fromAuthHeaderAsBearerToken(),
-            ignoreExpiration:false,
-            secretOrKey:configService.get<string>('JWT_SECRET') as string
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            ignoreExpiration: false,
+            secretOrKey: configService.get<string>('JWT_SECRET') as string
         });
     }
 
-    async validate(payload:JwtPayload){
+    async validate(payload: JwtPayload) {
 
-        const user=await this.userService.findUserById(payload.sub);
+        const user = await this.userService.findUserWithProfileById(payload.sub);
 
-        if(!user){
+        if (!user) {
             throw new UnauthorizedException(USER_MESSAGES.USER_NOT_FOUND);
         }
 
