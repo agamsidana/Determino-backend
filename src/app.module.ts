@@ -5,6 +5,8 @@ import { databaseConfig } from './config/database.config';
 import { UserModule } from './modules/user/user.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ExamModule } from './modules/exam/exam.module';
+import { GoalModule } from './modules/goal/goal.module';
 
 @Module({
   imports: [
@@ -19,7 +21,9 @@ import { AuthModule } from './modules/auth/auth.module';
     
     UserModule,
     ProfileModule,
-    AuthModule
+    AuthModule,
+    ExamModule,
+    GoalModule
   ],
   controllers: [],
   providers: [],

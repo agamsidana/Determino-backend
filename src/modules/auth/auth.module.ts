@@ -7,8 +7,6 @@ import { ProfileModule } from '../profile/profile.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
-console.log('JWT_SECRET:', process.env.JWT_SECRET);
-
 @Module({
   imports: [
     JwtModule.registerAsync({
