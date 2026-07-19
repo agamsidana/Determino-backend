@@ -1,0 +1,42 @@
+# Node modules (will be installed inside Docker)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build artifacts (only copy dist/ in production stage)
+dist
+build
+
+# Environment files (never include secrets in image)
+.env
+.env.*
+!.env.example
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode
+.idea
+
+# Git files
+.git
+.gitignore
+.gitattributes
+
+
+# Test files
+coverage
+*.spec.ts
+*.test.ts
+test
+__tests__
+
+# Logs
+logs
+*.log
+
+# Cache
+.cache
+.tmp

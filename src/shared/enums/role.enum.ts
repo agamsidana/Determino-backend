@@ -1,0 +1,4 @@
+export enum Role {
+  ASPIRANT = 'ASPIRANT',
+  CLEARED_CANDIDATE = 'CLEARED_CANDIDATE',
+}
