@@ -10,16 +10,41 @@ export class ExamService {
 
     async findAll() {
         const exams = await this.examRepository.find({
-            where:{
-                isActive:true
+            where: {
+                isActive: true,
+            },
+            order: {
+                isPopular: 'DESC',
+                name: 'ASC'
             }
         });
         return exams;
     }
 
-    async findExamById(id:string) {
-        const exam= await this.examRepository.findOneBy({id});
+    async findExamById(id: string) {
+        const exam = await this.examRepository.findOne({
+            where: {
+                id,
+                isActive: true
+            },
+        });
         return exam;
+    }
+
+    async findPopular() {
+
+        const exams = await this.examRepository.find({
+            where: {
+                isActive: true,
+                isPopular: true,
+            },
+            order: {
+                name: "ASC",
+            },
+        });
+
+        return exams;
+
     }
 
 

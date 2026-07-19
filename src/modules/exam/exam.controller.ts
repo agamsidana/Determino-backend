@@ -15,6 +15,11 @@ export class ExamController {
         return await this.examService.findAll()
     }
 
+    @Get('/popular')
+    async findPopular(){
+        return await this.examService.findPopular()
+    }
+
 
 
 }
