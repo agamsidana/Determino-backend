@@ -1,25 +1,27 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ExamService } from './exam.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('exams')
 export class ExamController {
 
-    constructor(private examService:ExamService){}
+    constructor(private examService: ExamService) { }
 
+    @ApiQuery({
+        name: 'search',
+        required: false,
+        type: String
+    })
     @Get()
-    async findAll(){
-        return await this.examService.findAll()
+    async findAll(@Query('search') search: string) {
+        return await this.examService.findAll(search)
     }
 
     @Get('/popular')
-    async findPopular(){
+    async findPopular() {
         return await this.examService.findPopular()
     }
-
-
-
 }

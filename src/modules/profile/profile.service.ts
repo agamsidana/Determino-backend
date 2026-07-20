@@ -10,6 +10,7 @@ import { ExamService } from '../exam/exam.service';
 import { OnboardingStep } from './enums/onboardingStep.enum';
 import { OnboardingScreen } from './enums/onboardingScreen.enum';
 import { GoalService } from '../goal/goal.service';
+import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
 
 @Injectable()
 export class ProfileService {
@@ -28,7 +29,7 @@ export class ProfileService {
 
     }
 
-    async updateProfile(user: UserEntity, dto: UpdateProfileDto) {
+    async updateProfile(user: UserEntity, dto: UpdateProfileDto): Promise<UpdateProfileResponseDto> {
 
         const profile = await this.profileRepository.findOne({
             where: {
@@ -79,8 +80,7 @@ export class ProfileService {
                             name: savedProfile.exam.name,
                         }
                         : null,
-                    targetExamYear: savedProfile.targetExamYear,
-                    qualifiedExamYear: savedProfile.qualifiedExamYear,
+                    goals: profile.goals.length ? profile.goals.map((goal) => ({ id: goal.id, name: goal.name })) : null
                 },
             },
         };
@@ -92,15 +92,6 @@ export class ProfileService {
         profile: ProfileEntity,
         dto: UpdateProfileDto,
     ) {
-
-        if (
-            dto.targetExamYear !== undefined &&
-            dto.qualifiedExamYear !== undefined
-        ) {
-            throw new BadRequestException(
-                USER_MESSAGES.CANNOT_PROVIDE_TWO_EXAM_YEAR,
-            );
-        }
 
         if (dto.screen === OnboardingScreen.WELCOME) {
             profile.currentOnboardingStep = OnboardingStep.ROLE;
@@ -119,25 +110,7 @@ export class ProfileService {
             }
 
             profile.exam = exam;
-            profile.currentOnboardingStep = OnboardingStep.YEAR;
-        }
-
-        if (dto.targetExamYear !== undefined) {
-
-            profile.targetExamYear = dto.targetExamYear;
-            profile.qualifiedExamYear = null as any;
-
             profile.currentOnboardingStep = OnboardingStep.COMPLETED;
-            profile.isOnboardingCompleted = true;
-        }
-
-        if (dto.qualifiedExamYear !== undefined) {
-
-            profile.qualifiedExamYear = dto.qualifiedExamYear;
-            profile.targetExamYear = null as any;
-
-            profile.currentOnboardingStep = OnboardingStep.COMPLETED;
-            profile.isOnboardingCompleted = true;
         }
 
         if (dto.goalIds !== undefined) {

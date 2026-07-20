@@ -23,16 +23,6 @@ export class UpdateProfileDto {
 
     @ApiProperty()
     @IsOptional()
-    @IsNumber()
-    targetExamYear!: number;
-
-    @ApiProperty()
-    @IsOptional()
-    @IsNumber()
-    qualifiedExamYear!: number;
-
-    @ApiProperty()
-    @IsOptional()
     @IsArray()
     @IsUUID("4", { each: true })
     goalIds?: string[];

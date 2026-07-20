@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserEntity } from '../user/entities/user.entity';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
 
 
 @ApiBearerAuth()
@@ -15,8 +16,8 @@ export class ProfileController {
     constructor(private readonly profileService: ProfileService) { }
 
     @Patch()
-    async updateProfile(@CurrentUser() user: UserEntity, @Body() dto: UpdateProfileDto) {
-        return await this.profileService.updateProfile(user,dto)
+    async updateProfile(@CurrentUser() user: UserEntity, @Body() dto: UpdateProfileDto): Promise<UpdateProfileResponseDto> {
+        return await this.profileService.updateProfile(user, dto)
     }
 
 }

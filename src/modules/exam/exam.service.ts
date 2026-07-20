@@ -1,27 +1,44 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ExamEntity } from './entities/exam.entity';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 
 @Injectable()
 export class ExamService {
 
     constructor(@InjectRepository(ExamEntity) private examRepository: Repository<ExamEntity>) { }
 
-    async findAll() {
+    async findAll(search?: string) {
+
+        const where: FindOptionsWhere<ExamEntity> = {
+            isActive: true
+        }
+
+        if (search?.trim()) {
+            where.name = ILike(`%${search.trim()}%`);
+        }
+
         const exams = await this.examRepository.find({
-            where: {
-                isActive: true,
-            },
+            where,
             order: {
                 isPopular: 'DESC',
                 name: 'ASC'
             }
         });
-        return exams;
+
+        const examsResponse = exams.map((exam) => ({
+            id: exam.id,
+            name: exam.name,
+            icon: exam.icon,
+            iconColor: exam.iconColor,
+            isPopular: exam.isPopular,
+            isActive: exam.isActive
+        }));
+
+        return examsResponse;
     }
 
-    async findExamById(id: string) {
+    async findExamById(id: string): Promise<ExamEntity | null> {
         const exam = await this.examRepository.findOne({
             where: {
                 id,
@@ -43,7 +60,16 @@ export class ExamService {
             },
         });
 
-        return exams;
+        const examsResponse = exams.map((exam) => ({
+            id: exam.id,
+            name: exam.name,
+            icon: exam.icon,
+            iconColor: exam.iconColor,
+            isPopular: exam.isPopular,
+            isActive: exam.isActive
+        }));
+
+        return examsResponse;
 
     }
 

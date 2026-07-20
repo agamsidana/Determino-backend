@@ -30,12 +30,6 @@ export class ProfileEntity{
     @Column({type:'enum',enum:Role,nullable:true})
     role!:Role;
 
-    @Column({nullable:true})
-    qualifiedExamYear!:number;
-
-    @Column({nullable:true})
-    targetExamYear!:number
-
     @Column({default:false})
     isOnboardingCompleted!:boolean;
 
