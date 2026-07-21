@@ -2,13 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ExamEntity } from './entities/exam.entity';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
+import { ExamResponseDto } from './dto/exam-response.dto';
 
 @Injectable()
 export class ExamService {
 
     constructor(@InjectRepository(ExamEntity) private examRepository: Repository<ExamEntity>) { }
 
-    async findAll(search?: string) {
+    async findAll(search?: string): Promise<ExamResponseDto> {
 
         const where: FindOptionsWhere<ExamEntity> = {
             isActive: true
@@ -35,7 +36,9 @@ export class ExamService {
             isActive: exam.isActive
         }));
 
-        return examsResponse;
+        return {
+            data: examsResponse,
+        };
     }
 
     async findExamById(id: string): Promise<ExamEntity | null> {
@@ -48,7 +51,7 @@ export class ExamService {
         return exam;
     }
 
-    async findPopular() {
+    async findPopular(): Promise<ExamResponseDto> {
 
         const exams = await this.examRepository.find({
             where: {
@@ -69,7 +72,9 @@ export class ExamService {
             isActive: exam.isActive
         }));
 
-        return examsResponse;
+        return {
+            data: examsResponse,
+        };
 
     }
 
