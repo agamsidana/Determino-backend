@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { SignUpDto } from './dto/signup.dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -9,6 +9,7 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { CurrentUserResponseDto } from './dto/current-user-response.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { SignupResponseDto } from './dto/signup-response.dto';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -24,6 +25,22 @@ export class AuthController {
     async login(@Body() dto: LoginDto): Promise<LoginResponseDto> {
         return await this.authService.login(dto);
     }
+
+    @Get('google')
+    @UseGuards(GoogleAuthGuard)
+    googleLogin() { }
+
+    @Get('google/callback')
+    @UseGuards(GoogleAuthGuard)
+    googleCallback(@Req() req,@Res() res) {
+
+    const result = req.user;
+
+
+    return res.redirect(
+        `http://localhost:5173?token=${result.data.accessToken}`
+    );
+     }
 
     @ApiBearerAuth()
     @UseGuards(JwtAuthGuard)

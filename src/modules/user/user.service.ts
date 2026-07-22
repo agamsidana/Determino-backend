@@ -14,13 +14,13 @@ export class UserService {
         return user;
     }
 
-    async findUserWithProfileById(id:string){
+    async findUserWithProfileById(id: string) {
         const user = await this.userRepository.findOne({
-            where:{
+            where: {
                 id
             },
-            relations:{
-                profile:true
+            relations: {
+                profile: true
             }
         });
 
@@ -32,20 +32,33 @@ export class UserService {
         return user;
     }
 
-    async findUserByEmailWithCredentials(email:string){
+    async findUserByEmailWithProfile(email: string) {
+
+        return this.userRepository.findOne({
+            where: {
+                email
+            },
+            relations: {
+                profile: true
+            }
+        });
+
+    }
+
+    async findUserByEmailWithCredentials(email: string) {
         const user = this.userRepository
             .createQueryBuilder('user')
             .addSelect('user.password')
             .leftJoinAndSelect('user.profile', 'profile')
-            .where('user.email=:email',{email})
+            .where('user.email=:email', { email })
             .getOne();
 
         return user;
     }
 
-    async createUser(data:CreateUserData,manager?:EntityManager) : Promise<UserEntity> {
+    async createUser(data: CreateUserData, manager?: EntityManager): Promise<UserEntity> {
 
-        const repository= manager ? manager.getRepository(UserEntity): this.userRepository
+        const repository = manager ? manager.getRepository(UserEntity) : this.userRepository
 
         const user = repository.create(data);
 
@@ -53,6 +66,16 @@ export class UserService {
 
         return savedUser;
 
+    }
+
+    async updateUser(
+        id: string,
+        data: Partial<UserEntity>
+    ) {
+        return await this.userRepository.preload({
+            id,
+            ...data
+        });
     }
 
 }

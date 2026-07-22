@@ -13,6 +13,7 @@ import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { UserEntity } from '../user/entities/user.entity';
 import { CurrentUserResponseDto } from './dto/current-user-response.dto';
+import { AuthProvider } from 'src/shared/enums/auth-provider.enum';
 
 @Injectable()
 export class AuthService {
@@ -33,7 +34,7 @@ export class AuthService {
 
         const result = await this.dataSource.transaction(async (manager) => {
 
-            const newUser = await this.userService.createUser({ email, password: hashedPassword }, manager);
+            const newUser = await this.userService.createUser({ email, password: hashedPassword, provider: AuthProvider.LOCAL }, manager);
 
 
             const userProfile = await this.profileService.createProfile({ firstName, lastName, user: newUser }, manager);
@@ -79,6 +80,11 @@ export class AuthService {
             throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
         }
 
+        if (!existingUser.password) {
+            throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
+        }
+
+
         const isPasswordCorrect = await bcrypt.compare(password, existingUser.password);
 
         if (!isPasswordCorrect) {
@@ -108,6 +114,115 @@ export class AuthService {
             }
 
         }
+
+    }
+
+    async validateGoogleUser({
+        googleId,
+        lastName,
+        firstName,
+        email
+    }): Promise<SignupResponseDto> {
+
+        let user: UserEntity;
+        let userProfile;
+
+
+        const existingUser = await this.userService.findUserByEmailWithProfile(email);
+
+
+        // New Google user
+        if (!existingUser) {
+
+            const result = await this.dataSource.transaction(async (manager) => {
+
+                const newUser = await this.userService.createUser(
+                    {
+                        email,
+                        googleId,
+                        provider: AuthProvider.GOOGLE,
+                    },
+                    manager
+                );
+
+
+                const profile = await this.profileService.createProfile(
+                    {
+                        firstName,
+                        lastName,
+                        user: newUser
+                    },
+                    manager
+                );
+
+
+                return {
+                    newUser,
+                    profile
+                };
+
+            });
+
+
+            user = result.newUser;
+            userProfile = result.profile;
+
+        }
+
+
+        // Existing local account -> connect Google account
+        else if (!existingUser.googleId) {
+
+
+            const updatedUser = await this.userService.updateUser(
+                existingUser.id,
+                {
+                    googleId,
+                    provider: AuthProvider.GOOGLE
+                }
+            );
+
+
+            user = updatedUser as UserEntity;
+            userProfile = existingUser.profile;
+
+        }
+
+
+        // Existing Google user
+        else {
+
+            user = existingUser;
+            userProfile = existingUser.profile;
+
+        }
+
+
+        const payload: JwtPayload = {
+            sub: user.id,
+            email: user.email
+        };
+
+
+        const accessToken = await this.jwtService.signAsync(payload);
+
+
+        return {
+            data: {
+                accessToken,
+
+                user: {
+                    id: user.id,
+                    email: user.email
+                },
+
+                profile: {
+                    firstName: userProfile.firstName,
+                    lastName: userProfile.lastName,
+                    role: userProfile.role
+                }
+            }
+        };
 
     }
 
