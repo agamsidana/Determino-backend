@@ -7,6 +7,7 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ExamModule } from './modules/exam/exam.module';
 import { GoalModule } from './modules/goal/goal.module';
+import { StudySessionModule } from './modules/study-session/study-session.module';
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { GoalModule } from './modules/goal/goal.module';
     ProfileModule,
     AuthModule,
     ExamModule,
-    GoalModule
+    GoalModule,
+    StudySessionModule
   ],
   controllers: [],
   providers: [],
