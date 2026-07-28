@@ -6,6 +6,8 @@ import { StudySessionEntity } from './entities/study-session.entity';
 import { StartSessionDto } from './dto/start-session.dto';
 import { StudySessionMessages } from 'src/shared/constants/messages/study-session.messages';
 import { CurrentStudySessionResponseDto, StartStudySessionResponseDto, StudySessionStatusResponseDto } from './dto/study-session-response.dto';
+import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
+import { HistoryResponseDto } from './dto/history-response.dto';
 
 @Injectable()
 export class StudySessionService {
@@ -46,7 +48,7 @@ export class StudySessionService {
 
     }
 
-    async getCurrentSession(userId: string):Promise<CurrentStudySessionResponseDto> {
+    async getCurrentSession(userId: string): Promise<CurrentStudySessionResponseDto> {
 
         const runningSession = await this.findSessionByStatus(userId, StudySession.RUNNING);
 
@@ -66,6 +68,69 @@ export class StudySessionService {
                 plannedDurationMinutes: runningSession.plannedDurationMinutes
             }
         }
+    }
+
+    async getSessionHistory(userId: string, query: PaginationQueryDto): Promise<HistoryResponseDto> {
+
+        const { page, limit } = query;
+        const skip = (page - 1) * limit;
+
+        const [sessions, total] = await Promise.all([
+            this.studySessionRepository.find({
+                where: {
+                    user: {
+                        id: userId
+                    },
+                    status: StudySession.COMPLETED
+                },
+                order: {
+                    startedAt: 'DESC'
+                },
+                skip,
+                take: limit
+            }),
+            this.studySessionRepository.count({
+                where: {
+                    user: {
+                        id: userId
+                    },
+                    status: StudySession.COMPLETED
+                }
+            })
+        ]);
+
+        const data = sessions.map((session) => {
+
+            const totalSeconds = Math.floor(
+                (session.endedAt.getTime() - session.startedAt.getTime()) / 1000
+            );
+
+            const actualFocusedSeconds =
+                totalSeconds - session.totalPausedSeconds;
+
+            const actualFocusMinutes = Math.floor(actualFocusedSeconds / 60);
+
+            return {
+                id: session.id,
+                startedAt: session.startedAt,
+                endedAt: session.endedAt,
+                plannedDurationMinutes: session.plannedDurationMinutes,
+                actualFocusMinutes,
+                status: session.status
+            }
+
+        });
+
+        return {
+            data,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        }
+
     }
 
     async pauseSession(userId: string): Promise<StudySessionStatusResponseDto> {
