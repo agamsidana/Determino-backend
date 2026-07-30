@@ -50,9 +50,9 @@ export class StudySessionService {
 
     async getCurrentSession(userId: string): Promise<CurrentStudySessionResponseDto> {
 
-        const runningSession = await this.findSessionByStatus(userId, StudySession.RUNNING);
+        const currentSession = await this.findActiveSession(userId);
 
-        if (!runningSession) {
+        if (!currentSession) {
             return {
                 data: null
             }
@@ -60,12 +60,12 @@ export class StudySessionService {
 
         return {
             data: {
-                id: runningSession.id,
-                status: runningSession.status,
-                startedAt: runningSession.startedAt,
-                pausedAt: runningSession.pausedAt,
-                totalPausedSeconds: runningSession.totalPausedSeconds,
-                plannedDurationMinutes: runningSession.plannedDurationMinutes
+                id: currentSession.id,
+                status: currentSession.status,
+                startedAt: currentSession.startedAt,
+                pausedAt: currentSession.pausedAt,
+                totalPausedSeconds: currentSession.totalPausedSeconds,
+                plannedDurationMinutes: currentSession.plannedDurationMinutes
             }
         }
     }
