@@ -1,9 +1,10 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { StudySession } from "../enums/study-session-status.enum";
 import { UserEntity } from "src/modules/user/entities/user.entity";
 
 
 @Entity({ name: 'study_sessions' })
+@Index(['user','status'])
 export class StudySessionEntity {
 
     @PrimaryGeneratedColumn('uuid')
