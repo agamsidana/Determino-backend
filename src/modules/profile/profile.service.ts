@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProfileEntity } from './entities/profile.entity';
 import { EntityManager, Repository } from 'typeorm';
@@ -117,7 +117,7 @@ export class ProfileService {
             const goals = await this.goalService.findGoalsByIds(dto.goalIds);
 
             if (goals.length !== dto.goalIds.length) {
-                throw new NotFoundException('one or more goals not found')
+                throw new NotFoundException(USER_MESSAGES.GOAL_NOT_FOUND);
             }
 
             profile.goals = goals;

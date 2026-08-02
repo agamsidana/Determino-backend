@@ -18,6 +18,6 @@ export class SignUpDto{
     @ApiProperty()
     @MinLength(8)
     @IsString()
-    password!:string
+    password!:string;
 
 }
