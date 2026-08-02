@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { StudySessionEntity } from './entities/study-session.entity';
 import { StartSessionDto } from './dto/start-session.dto';
 import { StudySessionMessages } from 'src/shared/constants/messages/study-session.messages';
-import { CurrentStudySessionResponseDto, StartStudySessionResponseDto, StudySessionStatusResponseDto } from './dto/study-session-response.dto';
+import { StudySessionResponseDto, StudySessionStatusResponseDto } from './dto/study-session-response.dto';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { HistoryResponseDto } from './dto/history-response.dto';
 
@@ -14,16 +14,18 @@ export class StudySessionService {
 
     constructor(@InjectRepository(StudySessionEntity) private readonly studySessionRepository: Repository<StudySessionEntity>) { }
 
-    async startSession(dto: StartSessionDto, userId: string): Promise<StartStudySessionResponseDto> {
+    async startSession(dto: StartSessionDto, userId: string): Promise<StudySessionResponseDto> {
 
+        // 1.Extract Planned Session Minutes And Find If User Already Have Any Active Session If Yes Than Throw Error 
         const { plannedDurationMinutes } = dto;
 
-        const runningSession = await this.findSessionByStatus(userId, StudySession.RUNNING);
+        const activeSession = await this.findActiveSession(userId);
 
-        if (runningSession) {
-            throw new BadRequestException(StudySessionMessages.ALREADY_RUNNING);
+        if (activeSession) {
+            throw new BadRequestException(StudySessionMessages.ACTIVE_SESSION_ALREADY_EXISTS);
         }
 
+        // 2.Calculate Current Time And Create A New Study Session For Logged In User
         const now = new Date();
 
         const session = this.studySessionRepository.create({
@@ -42,14 +44,17 @@ export class StudySessionService {
                 id: savedSession.id,
                 status: savedSession.status,
                 startedAt: savedSession.startedAt,
+                pausedAt: savedSession.pausedAt,
+                totalPausedSeconds: savedSession.totalPausedSeconds,
                 plannedDurationMinutes: savedSession.plannedDurationMinutes
             }
         }
 
     }
 
-    async getCurrentSession(userId: string): Promise<CurrentStudySessionResponseDto> {
+    async getCurrentSession(userId: string): Promise<StudySessionResponseDto> {
 
+        // 1.Find LoggedIn User Current Study Session If Not Present Return Null OtherWise The Current Session Details 
         const currentSession = await this.findActiveSession(userId);
 
         if (!currentSession) {
@@ -133,14 +138,16 @@ export class StudySessionService {
 
     }
 
-    async pauseSession(userId: string): Promise<StudySessionStatusResponseDto> {
+    async pauseSession(userId: string): Promise<StudySessionResponseDto> {
 
+        // 1.Find User Running Study Session If Not Found Throw Error.
         const runningSession = await this.findSessionByStatus(userId, StudySession.RUNNING);
 
         if (!runningSession) {
             throw new NotFoundException(StudySessionMessages.NO_RUNNING_SESSION);
         }
 
+        // 2.Calculate Current Time And Mark Paused At as Now And Mark Status As PAUSED.
         const now = new Date();
 
         runningSession.pausedAt = now;
@@ -150,20 +157,28 @@ export class StudySessionService {
 
         return {
             data: {
+                id: savedSession.id,
                 status: savedSession.status,
-            },
-        };
+                startedAt: savedSession.startedAt,
+                pausedAt: savedSession.pausedAt,
+                totalPausedSeconds: savedSession.totalPausedSeconds,
+                plannedDurationMinutes: savedSession.plannedDurationMinutes
+            }
+        }
 
     }
 
-    async resumeSession(userId: string): Promise<StudySessionStatusResponseDto> {
+    async resumeSession(userId: string): Promise<StudySessionResponseDto> {
 
+        // 1.Find User Paused Study Session If Not Found Throw Error.
         const pausedSession = await this.findSessionByStatus(userId, StudySession.PAUSED);
 
         if (!pausedSession) {
             throw new NotFoundException(StudySessionMessages.NO_PAUSED_SESSION);
         }
 
+        // 2.Calculate Current Time, paused duration seconds And Add paused Duration Seconds 
+        // To totalPausedSeconds also Mark Status As RUNNUNG.
         const now = new Date();
 
         const pausedDurationSeconds =
@@ -179,7 +194,12 @@ export class StudySessionService {
 
         return {
             data: {
-                status: savedSession.status
+                id: savedSession.id,
+                status: savedSession.status,
+                startedAt: savedSession.startedAt,
+                pausedAt: savedSession.pausedAt,
+                totalPausedSeconds: savedSession.totalPausedSeconds,
+                plannedDurationMinutes: savedSession.plannedDurationMinutes
             }
         }
 
@@ -188,14 +208,18 @@ export class StudySessionService {
 
     async finishSession(userId: string): Promise<StudySessionStatusResponseDto> {
 
+        // 1.Find User Active Session And If Not Any Throw Error.
         const activeSession = await this.findActiveSession(userId);
 
         if (!activeSession) {
             throw new BadRequestException(StudySessionMessages.NO_ACTIVE_SESSION);
         }
 
+        // 2.Calculate Current Time 
         const now = new Date();
 
+        // 3.If Active Session Status Is Paused Than Calculate Paused Duration Seconds And Add
+        // It To totalPausedSeconds and Mark paused At as null ( as User Press Finish).
         if (activeSession.status === StudySession.PAUSED) {
 
             const pausedDurationSeconds =
@@ -207,8 +231,18 @@ export class StudySessionService {
             activeSession.pausedAt = null;
         }
 
+        // 4.Calculate The Actual End Time Based On The Planned Duration.
+        const actualEndTime = new Date(
+            activeSession.startedAt.getTime() +
+            activeSession.plannedDurationMinutes * 60 * 1000 +
+            activeSession.totalPausedSeconds * 1000,
+        );
 
-        activeSession.endedAt = now;
+        // 5.If The User Finishes Early, Use The Current Time OtherWise The actualEndTime.
+        // Also Mark Status As COMPLETED
+        activeSession.endedAt =
+            now < actualEndTime ? now : actualEndTime;
+
         activeSession.status = StudySession.COMPLETED;
 
         const savedSession = await this.studySessionRepository.save(activeSession);

@@ -1,31 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { StudySession } from '../enums/study-session-status.enum';
 
-class StudySessionStartDataDto {
+export class StudySessionDto {
+
   @ApiProperty()
   id!: string;
 
-  @ApiProperty({ enum: StudySession })
+  @ApiProperty({
+    enum: StudySession
+  })
   status!: StudySession;
 
   @ApiProperty()
   startedAt!: Date;
 
-  @ApiProperty()
-  plannedDurationMinutes!: number;
-}
-
-class StudySessionCurrentDataDto {
-  @ApiProperty()
-  id!: string;
-
-  @ApiProperty({ enum: StudySession })
-  status!: StudySession;
-
-  @ApiProperty()
-  startedAt!: Date;
-
-  @ApiProperty({ nullable: true })
+  @ApiProperty({
+    nullable: true
+  })
   pausedAt!: Date | null;
 
   @ApiProperty()
@@ -33,31 +24,26 @@ class StudySessionCurrentDataDto {
 
   @ApiProperty()
   plannedDurationMinutes!: number;
+
 }
 
-class StudySessionStatusDataDto {
+export class StudySessionResponseDto {
+
+  @ApiProperty({
+    type: StudySessionDto,
+    nullable: true
+  })
+  data!: StudySessionDto | null;
+
+}
+class StudySessionStatusDto {
   @ApiProperty({ enum: StudySession })
   status!: StudySession;
 }
 
-export class StartStudySessionResponseDto {
-  @ApiProperty({
-    type: StudySessionStartDataDto,
-  })
-  data!: StudySessionStartDataDto;
-}
-
-export class CurrentStudySessionResponseDto {
-  @ApiProperty({
-    type: StudySessionCurrentDataDto,
-    nullable: true,
-  })
-  data!: StudySessionCurrentDataDto | null;
-}
-
 export class StudySessionStatusResponseDto {
   @ApiProperty({
-    type: StudySessionStatusDataDto,
+    type: StudySessionStatusDto,
   })
-  data!: StudySessionStatusDataDto;
+  data!: StudySessionStatusDto;
 }

@@ -1,5 +1,5 @@
 export const StudySessionMessages = {
-    ALREADY_RUNNING: 'User already has a running study session.',
+    ACTIVE_SESSION_ALREADY_EXISTS: 'User already has a active study session.',
 
     NO_RUNNING_SESSION: 'No running study session found.',
 
