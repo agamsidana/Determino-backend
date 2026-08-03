@@ -41,6 +41,11 @@ export class StudySessionEntity {
     @Column()
     plannedDurationMinutes!:number;
 
+    @Column({
+        default:0
+    })
+    actualStudySeconds!:number;
+
     @CreateDateColumn()
     createdAt!: Date;
 
