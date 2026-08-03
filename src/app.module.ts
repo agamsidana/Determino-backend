@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ExamModule } from './modules/exam/exam.module';
 import { GoalModule } from './modules/goal/goal.module';
 import { StudySessionModule } from './modules/study-session/study-session.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { StudySessionModule } from './modules/study-session/study-session.module
     AuthModule,
     ExamModule,
     GoalModule,
-    StudySessionModule
+    StudySessionModule,
+    AnalyticsModule
   ],
   controllers: [],
   providers: [],

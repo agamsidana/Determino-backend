@@ -245,6 +245,10 @@ export class StudySessionService {
 
         activeSession.status = StudySession.COMPLETED;
 
+        // 6. Calculate actual focused seconds for this session
+        const totalSessionSeconds = Math.floor((activeSession.endedAt.getTime() - activeSession.startedAt.getTime()) / 1000);
+        activeSession.actualStudySeconds = totalSessionSeconds - activeSession.totalPausedSeconds;
+
         const savedSession = await this.studySessionRepository.save(activeSession);
 
         return {
