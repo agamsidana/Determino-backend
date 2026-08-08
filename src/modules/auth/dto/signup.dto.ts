@@ -1,23 +1,27 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 import { IsEmail, IsString, MinLength } from "class-validator";
 
-export class SignUpDto{
+export class SignUpDto {
 
     @ApiProperty()
     @IsString()
-    firstName!:string;
+    @Transform(({ value }) => value?.trim())
+    firstName!: string;
 
     @ApiProperty()
     @IsString()
-    lastName!:string;
+    @Transform(({ value }) => value?.trim())
+    lastName!: string;
 
     @ApiProperty()
     @IsEmail()
-    email!:string;
+    @Transform(({ value }) => value?.trim().toLowerCase())
+    email!: string;
 
     @ApiProperty()
     @MinLength(8)
     @IsString()
-    password!:string;
+    password!: string;
 
 }

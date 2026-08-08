@@ -9,20 +9,22 @@ export class AnalyticsService {
 
     constructor(@InjectRepository(StudySessionEntity) private readonly studySessionRepository: Repository<StudySessionEntity>) { }
 
-    async getDashboard(userId: string) {
+    async getDashboard(userId: string, year?: number) {
+
+        const selectedYear = year ?? new Date().getFullYear();
 
         const [
-            currentYearSessions,
+            YearSessions,
             totalStudyMinutes,
             recentSessions
         ] = await Promise.all([
-            this.getCurrentYearSessions(userId),
+            this.getYearSessions(userId, selectedYear),
             this.getTotalStudy(userId),
             this.getRecentSessions(userId)
         ]);
 
-        const heatMap = this.getHeatMap(currentYearSessions);
-        const todayStudyMinutes = this.getTodayStudy(currentYearSessions)
+        const heatMap = this.getHeatMap(YearSessions);
+        const todayStudyMinutes = this.getTodayStudy(YearSessions)
 
         return {
             data: {
@@ -104,7 +106,9 @@ export class AnalyticsService {
             startedAt: session.startedAt,
             endedAt: session.endedAt,
             plannedDurationMinutes: session.plannedDurationMinutes,
+            totalPausedSeconds:session.totalPausedSeconds,
             actualStudyMinutes: Math.floor(session.actualStudySeconds / 60),
+            focusPercentage: Math.min((Math.floor(session.actualStudySeconds / 60) / session.plannedDurationMinutes) * 100, 100)
         }));
     }
 
@@ -127,9 +131,9 @@ export class AnalyticsService {
 
     }
 
-    private async getCurrentYearSessions(userId: string) {
+    private async getYearSessions(userId: string, selectedYear: number) {
 
-        const year = new Date().getFullYear();
+        const year = selectedYear;
 
         const start = new Date(year, 0, 1);
 
