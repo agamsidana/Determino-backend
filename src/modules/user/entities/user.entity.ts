@@ -1,3 +1,4 @@
+import { PostEntity } from "src/modules/post/entities/post.entity";
 import { ProfileEntity } from "src/modules/profile/entities/profile.entity";
 import { StudySessionEntity } from "src/modules/study-session/entities/study-session.entity";
 import { Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
@@ -30,5 +31,8 @@ export class UserEntity{
 
     @OneToMany(()=>StudySessionEntity,(studySession)=>studySession.user)
     studySessions!:StudySessionEntity[];
+
+    @OneToMany(()=>PostEntity,(post)=>post.user)
+    posts!:PostEntity[];
 
 }

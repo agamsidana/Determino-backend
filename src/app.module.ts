@@ -12,6 +12,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { PostModule } from './modules/post/post.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
     GoalModule,
     StudySessionModule,
     AnalyticsModule,
+    PostModule
 
   ],
   controllers: [],
