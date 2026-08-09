@@ -9,6 +9,9 @@ import { ExamModule } from './modules/exam/exam.module';
 import { GoalModule } from './modules/goal/goal.module';
 import { StudySessionModule } from './modules/study-session/study-session.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -20,16 +23,29 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       inject: [ConfigService],
       useFactory: databaseConfig
     }),
-    
+
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60_000,
+          limit: 100
+        }
+      ]
+    }),
+
     UserModule,
     ProfileModule,
     AuthModule,
     ExamModule,
     GoalModule,
     StudySessionModule,
-    AnalyticsModule
+    AnalyticsModule,
+
   ],
   controllers: [],
-  providers: [],
+  providers: [{
+    provide: APP_GUARD,
+    useClass: ThrottlerGuard,
+  }],
 })
 export class AppModule { }
