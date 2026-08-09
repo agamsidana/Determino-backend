@@ -9,17 +9,30 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { CurrentUserResponseDto } from './dto/current-user-response.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { SignupResponseDto } from './dto/signup-response.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
 
     constructor(private readonly authService: AuthService) { }
 
+    @Throttle({
+        default:{
+            limit:7,
+            ttl:60_000
+        }
+    })
     @Post('signup')
     async signup(@Body() dto: SignUpDto): Promise<SignupResponseDto> {
         return await this.authService.signup(dto);
     }
 
+    @Throttle({
+        default:{
+            limit:7,
+            ttl:60_000
+        }
+    })
     @Post('login')
     async login(@Body() dto: LoginDto): Promise<LoginResponseDto> {
         return await this.authService.login(dto);
