@@ -16,11 +16,12 @@ export class CreatePostDto{
     @IsEnum(PostType)
     type!:PostType;
 
+    @ApiProperty()
     @IsOptional()
     @ArrayMaxSize(10)
     @IsArray()
     @IsString({each:true})
     @MaxLength(50,{each:true})
-    hashTags!:string[]
+    hashtags!:string[]
 
 }

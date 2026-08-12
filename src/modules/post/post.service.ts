@@ -1,41 +1,52 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PostEntity } from './entities/post.entity';
-import { Repository } from 'typeorm';
+import { EntityManager, In, Repository,DataSource } from 'typeorm';
 import { CreatePostDto } from './dto/create-post.dto';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { ReactionType } from './enums/reaction-type.enum';
 import { PostReactionEntity } from './entities/post-reaction.entity';
-
+import { HashTagEntity } from './entities/hashtag.entity';
 @Injectable()
 export class PostService {
 
-    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>) { }
+    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, private readonly dataSource: DataSource) { }
 
     async createPost(userId: string, dto: CreatePostDto) {
 
-        const { title, content, type } = dto;
+        const { title, content, type, hashtags } = dto;
 
-        const post = this.postRepository.create({
-            title,
-            content,
-            type,
-            user: {
-                id: userId
+        return this.dataSource.transaction(async (manager) => {
+
+            const normalizeHashtags = await this.normalizeHashTags(manager,hashtags);
+
+            const post = manager.create(PostEntity,{
+                title,
+                content,
+                type,
+                hashtags: normalizeHashtags,
+                user: {
+                    id: userId
+                }
+            });
+
+            const savedPost = await manager.save(post);
+
+            return {
+                data: {
+                    id: savedPost.id,
+                    title: savedPost.title,
+                    type: savedPost.type,
+                    content: savedPost.content,
+                    hashtags:normalizeHashtags.map(hashtag=>({
+                        id:hashtag.id,
+                        name:hashtag.name
+                    })),
+                    createdAt: savedPost.createdAt
+                }
             }
-        });
 
-        const savedPost = await this.postRepository.save(post);
-
-        return {
-            data: {
-                id: savedPost.id,
-                title: savedPost.title,
-                type: savedPost.type,
-                content: savedPost.content,
-                createdAt: savedPost.createdAt
-            }
-        }
+        })
 
     }
 
@@ -143,6 +154,38 @@ export class PostService {
         }
 
         return post;
+
+    }
+
+    private async normalizeHashTags(manager:EntityManager,hashtags?: string[]): Promise<HashTagEntity[]> {
+
+        if (!hashtags?.length) {
+            return [];
+        }
+
+        const names = [...new Set(hashtags.map(h => h.trim().toLowerCase()).filter(Boolean))];
+
+        const existing =await manager.find(HashTagEntity,{
+            where: {
+                name: In(names)
+            }
+        });
+
+        const existingNames = new Set(existing.map(h => h.name));
+
+        const newNames = names.filter(name => !existingNames.has(name));
+
+        let created: HashTagEntity[] = [];
+
+        if (newNames.length > 0) {
+            const newEntities = newNames.map(name => manager.create(HashTagEntity,{
+                name
+            }));
+
+            created = await manager.save(newEntities);
+        }
+
+        return [...existing, ...created];
 
     }
 
