@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEnum, IsString } from "class-validator";
+import { ArrayMaxSize, IsArray, IsEnum, IsOptional, IsString, MaxLength } from "class-validator";
 import { PostType } from "../enums/post-type.enum";
 
 export class CreatePostDto{
@@ -15,5 +15,12 @@ export class CreatePostDto{
     @ApiProperty()
     @IsEnum(PostType)
     type!:PostType;
+
+    @IsOptional()
+    @ArrayMaxSize(10)
+    @IsArray()
+    @IsString({each:true})
+    @MaxLength(50,{each:true})
+    hashTags!:string[]
 
 }

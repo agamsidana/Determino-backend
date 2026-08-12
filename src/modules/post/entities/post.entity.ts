@@ -1,7 +1,8 @@
 import { UserEntity } from "src/modules/user/entities/user.entity";
-import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { PostType } from "../enums/post-type.enum";
 import { PostReactionEntity } from "./post-reaction.entity";
+import { HashTagEntity } from "./hashtag.entity";
 
 @Entity({ name: 'posts' })
 export class PostEntity {
@@ -31,6 +32,20 @@ export class PostEntity {
     user!: UserEntity;
 
     @OneToMany(() => PostReactionEntity, (postReaction) => postReaction.post)
-    reactions!: PostReactionEntity[]
+    reactions!: PostReactionEntity[];
+
+    @ManyToMany(() => HashTagEntity, (hashTag) => hashTag.posts)
+    @JoinTable({
+        name: 'post_hashtags', 
+        joinColumn: {
+            name: 'postId',
+            referencedColumnName: 'id',
+        },
+        inverseJoinColumn: {
+            name: 'hashTagId',
+            referencedColumnName: 'id',
+        },
+    })
+    hashtags!: HashTagEntity[]
 
 }
