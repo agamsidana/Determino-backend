@@ -13,6 +13,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { PostModule } from './modules/post/post.module';
+import { SupabaseModule } from './shared/supabase/supabase.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { PostModule } from './modules/post/post.module';
       ]
     }),
 
+    SupabaseModule,
     UserModule,
     ProfileModule,
     AuthModule,

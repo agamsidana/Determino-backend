@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PostEntity } from './entities/post.entity';
-import { EntityManager, In, Repository,DataSource } from 'typeorm';
+import { EntityManager, In, Repository, DataSource } from 'typeorm';
 import { CreatePostDto } from './dto/create-post.dto';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { ReactionType } from './enums/reaction-type.enum';
@@ -18,9 +18,9 @@ export class PostService {
 
         return this.dataSource.transaction(async (manager) => {
 
-            const normalizeHashtags = await this.normalizeHashTags(manager,hashtags);
+            const normalizeHashtags = await this.normalizeHashTags(manager, hashtags);
 
-            const post = manager.create(PostEntity,{
+            const post = manager.create(PostEntity, {
                 title,
                 content,
                 type,
@@ -38,9 +38,9 @@ export class PostService {
                     title: savedPost.title,
                     type: savedPost.type,
                     content: savedPost.content,
-                    hashtags:normalizeHashtags.map(hashtag=>({
-                        id:hashtag.id,
-                        name:hashtag.name
+                    hashtags: normalizeHashtags.map(hashtag => ({
+                        id: hashtag.id,
+                        name: hashtag.name
                     })),
                     createdAt: savedPost.createdAt
                 }
@@ -49,6 +49,7 @@ export class PostService {
         })
 
     }
+
 
     async getPosts(query: PaginationQueryDto, userId: string) {
 
@@ -157,7 +158,7 @@ export class PostService {
 
     }
 
-    private async normalizeHashTags(manager:EntityManager,hashtags?: string[]): Promise<HashTagEntity[]> {
+    private async normalizeHashTags(manager: EntityManager, hashtags?: string[]): Promise<HashTagEntity[]> {
 
         if (!hashtags?.length) {
             return [];
@@ -165,7 +166,7 @@ export class PostService {
 
         const names = [...new Set(hashtags.map(h => h.trim().toLowerCase()).filter(Boolean))];
 
-        const existing =await manager.find(HashTagEntity,{
+        const existing = await manager.find(HashTagEntity, {
             where: {
                 name: In(names)
             }
@@ -178,7 +179,7 @@ export class PostService {
         let created: HashTagEntity[] = [];
 
         if (newNames.length > 0) {
-            const newEntities = newNames.map(name => manager.create(HashTagEntity,{
+            const newEntities = newNames.map(name => manager.create(HashTagEntity, {
                 name
             }));
 
@@ -188,5 +189,4 @@ export class PostService {
         return [...existing, ...created];
 
     }
-
 }

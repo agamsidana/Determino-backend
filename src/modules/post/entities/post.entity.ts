@@ -3,6 +3,7 @@ import { Column, CreateDateColumn, Entity, JoinTable, ManyToMany, ManyToOne, One
 import { PostType } from "../enums/post-type.enum";
 import { PostReactionEntity } from "./post-reaction.entity";
 import { HashTagEntity } from "./hashtag.entity";
+import { PostAttachmentEntity } from "./post-attachment.entity";
 
 @Entity({ name: 'posts' })
 export class PostEntity {
@@ -46,6 +47,9 @@ export class PostEntity {
             referencedColumnName: 'id',
         },
     })
-    hashtags!: HashTagEntity[]
+    hashtags!: HashTagEntity[];
+
+    @OneToMany(()=>PostAttachmentEntity,(postAttachment)=>postAttachment.post)
+    attachments!:PostAttachmentEntity[];
 
 }

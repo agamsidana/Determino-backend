@@ -7,17 +7,24 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { PostReactionService } from './post-reaction.service';
+import { CreateAttachmentUploadUrlDto } from './dto/create-attachment-upload-url.dto';
+import { PostAttachmentService } from './post-attachment.service';
 
 @Controller('post')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class PostController {
 
-    constructor(private readonly postService: PostService, private readonly postReactionService:PostReactionService) { }
+    constructor(private readonly postService: PostService, private readonly postReactionService:PostReactionService, private postAttachmentService:PostAttachmentService) { }
 
     @Post()
     async createPost(@CurrentUser() user: UserEntity, @Body() dto:CreatePostDto) {
         return await this.postService.createPost(user.id,dto)
+    }
+
+    @Post("attachments/upload-url")
+    async getUploadUrl(@CurrentUser() user:UserEntity,@Body() dto:CreateAttachmentUploadUrlDto){
+        return await this.postAttachmentService.createUploadUrl(user.id,dto);
     }
 
     @Get()
