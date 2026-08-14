@@ -10,10 +10,12 @@ import { HashTagEntity } from './entities/hashtag.entity';
 import { PostUploadEntity } from './entities/post-upload.entity';
 import { PostAttachmentEntity } from './entities/post-attachment.entity';
 import { SupabaseStorageService } from 'src/shared/supabase/supabase-storage.service';
+import { PostAttachmentType } from './enums/post-attachment-type.enum';
+import { url } from 'inspector';
 @Injectable()
 export class PostService {
 
-    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, @InjectRepository(PostAttachmentEntity) private readonly postAttachmentRepository: Repository<PostAttachmentEntity>, private supabaseStorageService: SupabaseStorageService ,private readonly dataSource: DataSource) { }
+    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, @InjectRepository(PostAttachmentEntity) private readonly postAttachmentRepository: Repository<PostAttachmentEntity>, private supabaseStorageService: SupabaseStorageService, private readonly dataSource: DataSource) { }
 
     async createPost(userId: string, dto: CreatePostDto) {
 
@@ -23,15 +25,19 @@ export class PostService {
 
             const normalizeHashtags = await this.normalizeHashTags(manager, hashtags);
 
-            const uploadIds = attachments?.map(attachment => attachment.uploadId) ?? [];
+            const linkAttachments = attachments.filter((attachment) => attachment.type === PostAttachmentType.LINK);
 
-            const uploads = await manager.find(PostUploadEntity, {
+            const fileAttachments = attachments.filter((attachment) => attachment.type !== PostAttachmentType.LINK);
+
+            const uploadIds = fileAttachments?.map(attachment => attachment.uploadId) ?? [];
+
+            const uploads = uploadIds.length ? await manager.find(PostUploadEntity, {
                 where: {
                     id: In(uploadIds),
                     userId,
                     isUsed: false
                 }
-            });
+            }) : [];
 
             if (uploads.length !== uploadIds.length) {
                 throw new NotFoundException(
@@ -51,7 +57,7 @@ export class PostService {
 
             const savedPost = await manager.save(post);
 
-            const postAttachments = uploads.map(upload =>
+            const postFileAttachments = uploads.map(upload =>
                 manager.create(PostAttachmentEntity, {
                     type: upload.type,
                     storagePath: upload.storagePath,
@@ -62,11 +68,29 @@ export class PostService {
                 })
             );
 
-            const savedPostAttachments = await manager.save(postAttachments);
+            const postLinkAttachments = linkAttachments.map((attachment) =>
+                manager.create(PostAttachmentEntity, {
+                    type: attachment.type,
+                    url: attachment.url,
+                    post: savedPost
+                })
+            )
+
+            const postAttachments = [
+                ...postFileAttachments,
+                ...postLinkAttachments,
+            ];
+
+
+            const savedPostAttachments = postAttachments.length
+                ? await manager.save(postAttachments)
+                : [];
 
             uploads.forEach(upload => upload.isUsed = true);
 
-            await manager.save(uploads);
+            if (uploads.length) {
+                await manager.save(uploads);
+            }
 
             return {
                 data: {
@@ -83,7 +107,8 @@ export class PostService {
                         type: attachment.type,
                         fileName: attachment.fileName,
                         mimeType: attachment.mimeType,
-                        fileSize: attachment.fileSize
+                        fileSize: attachment.fileSize,
+                        url:attachment.url
                     })),
                     createdAt: savedPost.createdAt
                 }
@@ -165,7 +190,18 @@ export class PostService {
         const attachmentsWithUrls = await Promise.all(
             attachments.map(
                 async attachment => {
-                    const url = await this.supabaseStorageService.createDownloadUrl('post-attachments', attachment.storagePath, 60 * 60);
+
+                    let url:string | null=null;
+
+                    if(attachment.type ===PostAttachmentType.LINK){
+                        url = attachment.url
+                    }
+
+                    else{
+
+                    url = await this.supabaseStorageService.createDownloadUrl('post-attachments', attachment.storagePath, 60 * 60);
+
+                    }
 
                     return {
                         id: attachment.id,
@@ -207,35 +243,35 @@ export class PostService {
 
         const transformedPosts = entities.map((post, index) => {
 
-            const postAttachments=attachmentsByPost.get(post.id) ?? [];
+            const postAttachments = attachmentsByPost.get(post.id) ?? [];
 
-            return{
-            id: post.id,
-            title: post.title,
-            content: post.content,
-            type: post.type,
-            createdAt: post.createdAt,
+            return {
+                id: post.id,
+                title: post.title,
+                content: post.content,
+                type: post.type,
+                createdAt: post.createdAt,
 
-            author: {
-                id: post.user.id,
-                name: `${post.user.profile.firstName} ${post.user.profile.lastName}`
-            },
+                author: {
+                    id: post.user.id,
+                    name: `${post.user.profile.firstName} ${post.user.profile.lastName}`
+                },
 
-            helpfulCount: Number(raw[index].helpfulCount),
+                helpfulCount: Number(raw[index].helpfulCount),
 
-            isHelpful: raw[index].isHelpful === true || raw[index].isHelpful === 'true',
+                isHelpful: raw[index].isHelpful === true || raw[index].isHelpful === 'true',
 
-            attachments: postAttachments.map(
-                attachment=>({
-                    id:attachment.id,
-                    type:attachment.type,
-                    fileName:attachment.fileName,
-                    mimeType:attachment.mimeType,
-                    fileSize:attachment.fileSize,
-                    url:attachment.url
-                })
-            )
-        }
+                attachments: postAttachments.map(
+                    attachment => ({
+                        id: attachment.id,
+                        type: attachment.type,
+                        fileName: attachment.fileName,
+                        mimeType: attachment.mimeType,
+                        fileSize: attachment.fileSize,
+                        url: attachment.url
+                    })
+                )
+            }
         });
 
         const total = await this.postRepository.count({

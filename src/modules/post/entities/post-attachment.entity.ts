@@ -12,17 +12,20 @@ export class PostAttachmentEntity {
     @Column({ type: 'enum', enum: PostAttachmentType })
     type!: PostAttachmentType;
 
-    @Column()
+    @Column({nullable:true})
     storagePath!: string;
 
     @Column({ nullable: true })
     fileName!: string;
 
-    @Column({type:'enum',enum:UploadMimeType})
+    @Column({type:'enum',enum:UploadMimeType,nullable:true})
     mimeType!: UploadMimeType;
 
     @Column({ type: 'bigint', nullable: true })
     fileSize!: number;
+
+    @Column({nullable:true})
+    url!:string;
 
     @CreateDateColumn()
     createdAt!:Date;

@@ -6,7 +6,7 @@ import { PostAttachmentType } from "../enums/post-attachment-type.enum";
 @Entity({name:'post_uploads'})
 export class PostUploadEntity{
 
-    @PrimaryGeneratedColumn()
+    @PrimaryGeneratedColumn('uuid')
     id!:string;
 
     @Column()
