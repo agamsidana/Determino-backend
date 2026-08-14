@@ -3,6 +3,7 @@ import { ArrayMaxSize, IsArray, IsEnum, IsOptional, IsString, MaxLength, Validat
 import { PostType } from "../enums/post-type.enum";
 import { CreatePostAttachmentDto } from "./create-post-attachment.dto";
 import { Type } from "class-transformer";
+import { PollInputDto } from "./poll-input.dto";
 
 export class CreatePostDto{
 
@@ -36,5 +37,14 @@ export class CreatePostDto{
     @ValidateNested({each:true})
     @Type(()=>CreatePostAttachmentDto)
     attachments!:CreatePostAttachmentDto[];
+
+    @ApiProperty({
+        type:PollInputDto,
+        required:false
+    })
+    @IsOptional()
+    @ValidateNested()
+    @Type(()=>PollInputDto)
+    poll!:PollInputDto
 
 }

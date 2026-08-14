@@ -1,9 +1,10 @@
 import { UserEntity } from "src/modules/user/entities/user.entity";
-import { Column, CreateDateColumn, Entity, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { PostType } from "../enums/post-type.enum";
 import { PostReactionEntity } from "./post-reaction.entity";
 import { HashTagEntity } from "./hashtag.entity";
 import { PostAttachmentEntity } from "./post-attachment.entity";
+import { PostPollEntity } from "./post-poll.entity";
 
 @Entity({ name: 'posts' })
 export class PostEntity {
@@ -51,5 +52,8 @@ export class PostEntity {
 
     @OneToMany(()=>PostAttachmentEntity,(postAttachment)=>postAttachment.post)
     attachments!:PostAttachmentEntity[];
+
+    @OneToOne(()=>PostPollEntity,(postPoll)=>postPoll.post)
+    poll!:PostPollEntity;
 
 }

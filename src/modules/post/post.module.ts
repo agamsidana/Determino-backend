@@ -9,9 +9,12 @@ import { HashTagEntity } from './entities/hashtag.entity';
 import { PostAttachmentEntity } from './entities/post-attachment.entity';
 import { PostAttachmentService } from './post-attachment.service';
 import { PostUploadEntity } from './entities/post-upload.entity';
+import { PostPollEntity } from './entities/post-poll.entity';
+import { PostPollOptionEntity } from './entities/post-poll-option.entity';
+import { PostPollVoteEntity } from './entities/post-poll-vote.entity';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity])],
+  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity])],
   providers: [PostService,PostReactionService,PostAttachmentService],
   controllers: [PostController]
 })

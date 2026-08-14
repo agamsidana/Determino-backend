@@ -11,7 +11,9 @@ import { PostUploadEntity } from './entities/post-upload.entity';
 import { PostAttachmentEntity } from './entities/post-attachment.entity';
 import { SupabaseStorageService } from 'src/shared/supabase/supabase-storage.service';
 import { PostAttachmentType } from './enums/post-attachment-type.enum';
-import { url } from 'inspector';
+import { PollInputDto } from './dto/poll-input.dto';
+import { PostPollEntity } from './entities/post-poll.entity';
+import { PostPollOptionEntity } from './entities/post-poll-option.entity';
 @Injectable()
 export class PostService {
 
@@ -19,15 +21,14 @@ export class PostService {
 
     async createPost(userId: string, dto: CreatePostDto) {
 
-        const { title, content, type, hashtags, attachments } = dto;
+        const { title, content, type, hashtags, attachments, poll } = dto;
 
         return this.dataSource.transaction(async (manager) => {
 
             const normalizeHashtags = await this.normalizeHashTags(manager, hashtags);
 
-            const linkAttachments = attachments.filter((attachment) => attachment.type === PostAttachmentType.LINK);
-
-            const fileAttachments = attachments.filter((attachment) => attachment.type !== PostAttachmentType.LINK);
+            const linkAttachments = (attachments ?? []).filter((attachment) => attachment.type === PostAttachmentType.LINK);
+            const fileAttachments = (attachments ?? []).filter((attachment) => attachment.type !== PostAttachmentType.LINK);
 
             const uploadIds = fileAttachments?.map(attachment => attachment.uploadId) ?? [];
 
@@ -92,6 +93,13 @@ export class PostService {
                 await manager.save(uploads);
             }
 
+            let savedPoll: { id: string; options: { id: string; text: string; position: number }[] } | null = null;
+
+
+            if (poll) {
+                savedPoll = await this.createPoll(manager, savedPost.id, poll);
+            }
+
             return {
                 data: {
                     id: savedPost.id,
@@ -108,8 +116,9 @@ export class PostService {
                         fileName: attachment.fileName,
                         mimeType: attachment.mimeType,
                         fileSize: attachment.fileSize,
-                        url:attachment.url
+                        url: attachment.url
                     })),
+                    poll:savedPoll,
                     createdAt: savedPost.createdAt
                 }
             }
@@ -191,15 +200,15 @@ export class PostService {
             attachments.map(
                 async attachment => {
 
-                    let url:string | null=null;
+                    let url: string | null = null;
 
-                    if(attachment.type ===PostAttachmentType.LINK){
+                    if (attachment.type === PostAttachmentType.LINK) {
                         url = attachment.url
                     }
 
-                    else{
+                    else {
 
-                    url = await this.supabaseStorageService.createDownloadUrl('post-attachments', attachment.storagePath, 60 * 60);
+                        url = await this.supabaseStorageService.createDownloadUrl('post-attachments', attachment.storagePath, 60 * 60);
 
                     }
 
@@ -340,6 +349,39 @@ export class PostService {
         }
 
         return [...existing, ...created];
+
+    }
+
+    private async createPoll(manager: EntityManager, postId: string, dto: PollInputDto) {
+
+        const { options } = dto;
+
+        const poll = manager.create(PostPollEntity, {
+            post: {
+                id: postId
+            }
+        });
+
+        const savedPoll = await manager.save(poll);
+
+        const optionEntities = options.map((option, idx) =>
+            manager.create(PostPollOptionEntity, {
+                text: option,
+                position: idx,
+                postPoll: { id: savedPoll.id }
+            })
+        );
+
+        const savedOptions = await manager.save(PostPollOptionEntity, optionEntities);
+
+        return {
+            id: savedPoll.id,
+            options: savedOptions.map((option) => ({
+                id: option.id,
+                text: option.text,
+                position: option.position,
+            })),
+        };
 
     }
 }
