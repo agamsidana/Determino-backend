@@ -30,6 +30,9 @@ export class PostUploadEntity{
     @Column({type:'bigint'})
     fileSize!:number;
 
+    @Column({default:false})
+    isUsed!:boolean;
+
     @CreateDateColumn()
     createdAt!:Date;
 

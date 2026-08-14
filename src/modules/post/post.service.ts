@@ -7,18 +7,37 @@ import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { ReactionType } from './enums/reaction-type.enum';
 import { PostReactionEntity } from './entities/post-reaction.entity';
 import { HashTagEntity } from './entities/hashtag.entity';
+import { PostUploadEntity } from './entities/post-upload.entity';
+import { PostAttachmentEntity } from './entities/post-attachment.entity';
+import { SupabaseStorageService } from 'src/shared/supabase/supabase-storage.service';
 @Injectable()
 export class PostService {
 
-    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, private readonly dataSource: DataSource) { }
+    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, @InjectRepository(PostAttachmentEntity) private readonly postAttachmentRepository: Repository<PostAttachmentEntity>, private supabaseStorageService: SupabaseStorageService ,private readonly dataSource: DataSource) { }
 
     async createPost(userId: string, dto: CreatePostDto) {
 
-        const { title, content, type, hashtags } = dto;
+        const { title, content, type, hashtags, attachments } = dto;
 
         return this.dataSource.transaction(async (manager) => {
 
             const normalizeHashtags = await this.normalizeHashTags(manager, hashtags);
+
+            const uploadIds = attachments?.map(attachment => attachment.uploadId) ?? [];
+
+            const uploads = await manager.find(PostUploadEntity, {
+                where: {
+                    id: In(uploadIds),
+                    userId,
+                    isUsed: false
+                }
+            });
+
+            if (uploads.length !== uploadIds.length) {
+                throw new NotFoundException(
+                    'One or more attachments are invalid',
+                );
+            }
 
             const post = manager.create(PostEntity, {
                 title,
@@ -32,6 +51,23 @@ export class PostService {
 
             const savedPost = await manager.save(post);
 
+            const postAttachments = uploads.map(upload =>
+                manager.create(PostAttachmentEntity, {
+                    type: upload.type,
+                    storagePath: upload.storagePath,
+                    fileName: upload.fileName,
+                    mimeType: upload.mimeType,
+                    fileSize: upload.fileSize,
+                    post: savedPost
+                })
+            );
+
+            const savedPostAttachments = await manager.save(postAttachments);
+
+            uploads.forEach(upload => upload.isUsed = true);
+
+            await manager.save(uploads);
+
             return {
                 data: {
                     id: savedPost.id,
@@ -41,6 +77,13 @@ export class PostService {
                     hashtags: normalizeHashtags.map(hashtag => ({
                         id: hashtag.id,
                         name: hashtag.name
+                    })),
+                    attachments: savedPostAttachments.map(attachment => ({
+                        id: attachment.id,
+                        type: attachment.type,
+                        fileName: attachment.fileName,
+                        mimeType: attachment.mimeType,
+                        fileSize: attachment.fileSize
                     })),
                     createdAt: savedPost.createdAt
                 }
@@ -104,13 +147,69 @@ export class PostService {
 
         const { entities, raw } = await queryBuilder.getRawAndEntities();
 
-        const total = await this.postRepository.count({
-            where: {
-                isDeleted: false
-            }
-        });
+        const postIds = entities.map(post => post.id);
 
-        const transformedPosts = entities.map((post, index) => ({
+        const attachments = postIds.length
+            ? await this.postAttachmentRepository.find({
+                where: {
+                    post: {
+                        id: In(postIds),
+                    },
+                },
+                relations: {
+                    post: true,
+                },
+            })
+            : [];
+
+        const attachmentsWithUrls = await Promise.all(
+            attachments.map(
+                async attachment => {
+                    const url = await this.supabaseStorageService.createDownloadUrl('post-attachments', attachment.storagePath, 60 * 60);
+
+                    return {
+                        id: attachment.id,
+                        postId: attachment.post.id,
+                        type: attachment.type,
+                        fileName: attachment.fileName,
+                        mimeType: attachment.mimeType,
+                        fileSize: attachment.fileSize,
+                        url,
+                    };
+
+                }
+            )
+        );
+
+        const attachmentsByPost =
+            new Map<
+                string,
+                typeof attachmentsWithUrls
+            >();
+
+        for (
+            const attachment
+            of attachmentsWithUrls
+        ) {
+
+            const existing =
+                attachmentsByPost.get(
+                    attachment.postId,
+                ) ?? [];
+
+            existing.push(attachment);
+
+            attachmentsByPost.set(
+                attachment.postId,
+                existing,
+            );
+        }
+
+        const transformedPosts = entities.map((post, index) => {
+
+            const postAttachments=attachmentsByPost.get(post.id) ?? [];
+
+            return{
             id: post.id,
             title: post.title,
             content: post.content,
@@ -124,8 +223,26 @@ export class PostService {
 
             helpfulCount: Number(raw[index].helpfulCount),
 
-            isHelpful: raw[index].isHelpful === true || raw[index].isHelpful === 'true'
-        }));
+            isHelpful: raw[index].isHelpful === true || raw[index].isHelpful === 'true',
+
+            attachments: postAttachments.map(
+                attachment=>({
+                    id:attachment.id,
+                    type:attachment.type,
+                    fileName:attachment.fileName,
+                    mimeType:attachment.mimeType,
+                    fileSize:attachment.fileSize,
+                    url:attachment.url
+                })
+            )
+        }
+        });
+
+        const total = await this.postRepository.count({
+            where: {
+                isDeleted: false
+            }
+        });
 
         return {
             data: {

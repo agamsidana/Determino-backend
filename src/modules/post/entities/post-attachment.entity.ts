@@ -13,7 +13,7 @@ export class PostAttachmentEntity {
     type!: PostAttachmentType;
 
     @Column()
-    url!: string;
+    storagePath!: string;
 
     @Column({ nullable: true })
     fileName!: string;

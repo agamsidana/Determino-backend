@@ -21,7 +21,7 @@ export class PostEntity {
     type!: PostType;
 
     @Column({ default: false })
-    isDeleted!: boolean
+    isDeleted!: boolean;
 
     @CreateDateColumn()
     createdAt!: Date;

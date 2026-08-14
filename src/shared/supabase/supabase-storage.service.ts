@@ -19,4 +19,15 @@ export class SupabaseStorageService {
         return data;
     }
 
+    async createDownloadUrl(bucket:string,path:string,expiresIn:number){
+
+        const {data,error}=await this.supabase.storage.from(bucket).createSignedUrl(path,expiresIn);
+        if(error){
+            throw error
+        }
+
+        return data.signedUrl;
+        
+    }
+
 }
