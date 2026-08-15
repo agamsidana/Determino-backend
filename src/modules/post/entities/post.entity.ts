@@ -5,6 +5,7 @@ import { PostReactionEntity } from "./post-reaction.entity";
 import { HashTagEntity } from "./hashtag.entity";
 import { PostAttachmentEntity } from "./post-attachment.entity";
 import { PostPollEntity } from "./post-poll.entity";
+import { PostCommentEntity } from "./post-comment.entity";
 
 @Entity({ name: 'posts' })
 export class PostEntity {
@@ -52,5 +53,8 @@ export class PostEntity {
 
     @OneToOne(()=>PostPollEntity,(postPoll)=>postPoll.post)
     poll!:PostPollEntity;
+
+    @OneToMany(()=>PostCommentEntity,(postComment)=>postComment.post)
+    comments!:PostCommentEntity[];
 
 }

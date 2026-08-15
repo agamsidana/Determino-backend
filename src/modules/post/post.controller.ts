@@ -11,13 +11,15 @@ import { CreateAttachmentUploadUrlDto } from './dto/create-attachment-upload-url
 import { PostAttachmentService } from './post-attachment.service';
 import { VotePollDto } from './dto/vote-poll.dto';
 import { PostPollService } from './post-poll.service';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { PostCommentService } from './post-comment.service';
 
 @Controller('post')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class PostController {
 
-    constructor(private readonly postService: PostService, private readonly postReactionService:PostReactionService, private readonly postAttachmentService:PostAttachmentService,private readonly postPollService:PostPollService ) { }
+    constructor(private readonly postService: PostService, private readonly postReactionService:PostReactionService, private readonly postAttachmentService:PostAttachmentService,private readonly postPollService:PostPollService,private readonly postCommentService:PostCommentService) { }
 
     @Post()
     async createPost(@CurrentUser() user: UserEntity, @Body() dto:CreatePostDto) {
@@ -34,9 +36,20 @@ export class PostController {
         return await this.postService.getPosts(query,user.id);
     }
 
+    @Post(':postId/comment')
+    async createComment(@Param('postId') postId:string,@CurrentUser() user:UserEntity,@Body() dto:CreateCommentDto){
+        return await this.postCommentService.createComment(postId,user,dto);
+    }
+
+    @Get(':postId/comment')
+    async getComments(@Param('postId') postId:string,@Query() query:PaginationQueryDto){
+        return await this.postCommentService.getComments(postId,query);
+
+    }
+
     @Post(':postId/poll/vote')
     async voteOnPoll(@Param('postId') postId:string,@CurrentUser() user:UserEntity,@Body() dto:VotePollDto){
-        await this.postPollService.voteOnPoll(postId,user.id,dto);
+        return await this.postPollService.voteOnPoll(postId,user.id,dto);
     }
 
     @Post(':postId/helpful')

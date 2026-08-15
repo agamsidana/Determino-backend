@@ -13,10 +13,12 @@ import { PostPollEntity } from './entities/post-poll.entity';
 import { PostPollOptionEntity } from './entities/post-poll-option.entity';
 import { PostPollVoteEntity } from './entities/post-poll-vote.entity';
 import { PostPollService } from './post-poll.service';
+import { PostCommentService } from './post-comment.service';
+import { PostCommentEntity } from './entities/post-comment.entity';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity])],
-  providers: [PostService,PostReactionService,PostAttachmentService,PostPollService],
+  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity])],
+  providers: [PostService,PostReactionService,PostAttachmentService,PostPollService,PostCommentService],
   controllers: [PostController]
 })
 export class PostModule {}

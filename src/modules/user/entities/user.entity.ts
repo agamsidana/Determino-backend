@@ -1,3 +1,4 @@
+import { PostCommentEntity } from "src/modules/post/entities/post-comment.entity";
 import { PostPollVoteEntity } from "src/modules/post/entities/post-poll-vote.entity";
 import { PostReactionEntity } from "src/modules/post/entities/post-reaction.entity";
 import { PostEntity } from "src/modules/post/entities/post.entity";
@@ -41,6 +42,9 @@ export class UserEntity {
     postReactions!: PostReactionEntity[];
 
     @OneToMany(()=>PostPollVoteEntity,(postPollVotes)=>postPollVotes.user)
-    pollVotes!:PostPollVoteEntity[]
+    pollVotes!:PostPollVoteEntity[];
+
+    @OneToMany(()=>PostCommentEntity,(postComment)=>postComment.user)
+    postComments!:PostCommentEntity[]
 
 }
