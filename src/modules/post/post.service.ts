@@ -14,6 +14,7 @@ import { PostAttachmentType } from './enums/post-attachment-type.enum';
 import { PollInputDto } from './dto/poll-input.dto';
 import { PostPollEntity } from './entities/post-poll.entity';
 import { PostPollOptionEntity } from './entities/post-poll-option.entity';
+import { PostType } from './enums/post-type.enum';
 @Injectable()
 export class PostService {
 
@@ -96,7 +97,7 @@ export class PostService {
             let savedPoll: { id: string; options: { id: string; text: string; position: number }[] } | null = null;
 
 
-            if (poll) {
+            if (poll && type!==PostType.QUESTION) {
                 savedPoll = await this.createPoll(manager, savedPost.id, poll);
             }
 
