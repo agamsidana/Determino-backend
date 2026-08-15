@@ -13,9 +13,6 @@ export class PostEntity {
     id!: string;
 
     @Column()
-    title!: string;
-
-    @Column()
     content!: string;
 
     @Column({ type: 'enum', enum: PostType })

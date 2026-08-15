@@ -9,10 +9,6 @@ export class CreatePostDto{
 
     @ApiProperty()
     @IsString()
-    title!:string;
-
-    @ApiProperty()
-    @IsString()
     content!:string;
 
     @ApiProperty()

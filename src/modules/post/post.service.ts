@@ -22,7 +22,7 @@ export class PostService {
 
     async createPost(userId: string, dto: CreatePostDto) {
 
-        const { title, content, type, hashtags, attachments, poll } = dto;
+        const { content, type, hashtags, attachments, poll } = dto;
 
         return this.dataSource.transaction(async (manager) => {
 
@@ -48,7 +48,6 @@ export class PostService {
             }
 
             const post = manager.create(PostEntity, {
-                title,
                 content,
                 type,
                 hashtags: normalizeHashtags,
@@ -104,7 +103,6 @@ export class PostService {
             return {
                 data: {
                     id: savedPost.id,
-                    title: savedPost.title,
                     type: savedPost.type,
                     content: savedPost.content,
                     hashtags: normalizeHashtags.map(hashtag => ({
@@ -257,7 +255,6 @@ export class PostService {
 
             return {
                 id: post.id,
-                title: post.title,
                 content: post.content,
                 type: post.type,
                 createdAt: post.createdAt,
