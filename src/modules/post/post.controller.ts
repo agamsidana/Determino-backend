@@ -13,13 +13,14 @@ import { VotePollDto } from './dto/vote-poll.dto';
 import { PostPollService } from './post-poll.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { PostCommentService } from './post-comment.service';
+import { PostSaveService } from './post-save.service';
 
 @Controller('post')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class PostController {
 
-    constructor(private readonly postService: PostService, private readonly postReactionService:PostReactionService, private readonly postAttachmentService:PostAttachmentService,private readonly postPollService:PostPollService,private readonly postCommentService:PostCommentService) { }
+    constructor(private readonly postService: PostService, private readonly postReactionService:PostReactionService, private readonly postAttachmentService:PostAttachmentService,private readonly postPollService:PostPollService,private readonly postCommentService:PostCommentService,private readonly postSaveService:PostSaveService) { }
 
     @Post()
     async createPost(@CurrentUser() user: UserEntity, @Body() dto:CreatePostDto) {
@@ -50,6 +51,16 @@ export class PostController {
     @Post(':postId/poll/vote')
     async voteOnPoll(@Param('postId') postId:string,@CurrentUser() user:UserEntity,@Body() dto:VotePollDto){
         return await this.postPollService.voteOnPoll(postId,user.id,dto);
+    }
+
+    @Post(':postId/save')
+    async savePost(@Param('postId') postId:string,@CurrentUser() user:UserEntity){
+        return this.postSaveService.savePost(postId,user.id);
+    }
+
+    @Delete(':postId/save')
+    async unsavePost(@Param('postId') postId:string,@CurrentUser() user:UserEntity){
+        return this.postSaveService.unsavePost(postId,user.id);
     }
 
     @Post(':postId/helpful')

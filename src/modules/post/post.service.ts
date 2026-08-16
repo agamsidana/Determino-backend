@@ -103,8 +103,8 @@ export class PostService {
             return {
                 data: {
                     id: savedPost.id,
-                    type: savedPost.type,
                     content: savedPost.content,
+                    type: savedPost.type,
                     hashtags: normalizeHashtags.map(hashtag => ({
                         id: hashtag.id,
                         name: hashtag.name

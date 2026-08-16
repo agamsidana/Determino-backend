@@ -1,6 +1,7 @@
 import { PostCommentEntity } from "src/modules/post/entities/post-comment.entity";
 import { PostPollVoteEntity } from "src/modules/post/entities/post-poll-vote.entity";
 import { PostReactionEntity } from "src/modules/post/entities/post-reaction.entity";
+import { PostSaveEntity } from "src/modules/post/entities/post-save.entity";
 import { PostEntity } from "src/modules/post/entities/post.entity";
 import { ProfileEntity } from "src/modules/profile/entities/profile.entity";
 import { StudySessionEntity } from "src/modules/study-session/entities/study-session.entity";
@@ -45,6 +46,9 @@ export class UserEntity {
     pollVotes!:PostPollVoteEntity[];
 
     @OneToMany(()=>PostCommentEntity,(postComment)=>postComment.user)
-    postComments!:PostCommentEntity[]
+    postComments!:PostCommentEntity[];
+
+    @OneToMany(()=>PostSaveEntity,(postSave)=>postSave.user)
+    postSaves!:PostSaveEntity[];
 
 }

@@ -6,6 +6,7 @@ import { HashTagEntity } from "./hashtag.entity";
 import { PostAttachmentEntity } from "./post-attachment.entity";
 import { PostPollEntity } from "./post-poll.entity";
 import { PostCommentEntity } from "./post-comment.entity";
+import { PostSaveEntity } from "./post-save.entity";
 
 @Entity({ name: 'posts' })
 export class PostEntity {
@@ -56,5 +57,8 @@ export class PostEntity {
 
     @OneToMany(()=>PostCommentEntity,(postComment)=>postComment.post)
     comments!:PostCommentEntity[];
+
+    @OneToMany(()=>PostSaveEntity,(postSave)=>postSave.post)
+    saves!:PostSaveEntity[];
 
 }
