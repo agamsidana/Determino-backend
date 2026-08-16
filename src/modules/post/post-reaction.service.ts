@@ -4,6 +4,7 @@ import { PostReactionEntity } from "./entities/post-reaction.entity";
 import { QueryFailedError, Repository } from "typeorm";
 import { ReactionType } from "./enums/reaction-type.enum";
 import { PostService } from "./post.service";
+import { POST_MESSAGES } from "src/shared/constants/messages/post.messages";
 
 
 @Injectable()
@@ -36,7 +37,7 @@ export class PostReactionService {
                 const constraint = (error as any).driverError?.constraint;
 
                 if (constraint === "UQ_POST_REACTION_USER_POST_TYPE") {
-                    throw new ConflictException('User has already marked this post as helpful')
+                    throw new ConflictException(POST_MESSAGES.ALREADY_MARKED_THIS_POST_AS_HELPFUL)
                 }
             }
 
@@ -45,7 +46,7 @@ export class PostReactionService {
         }
 
         return {
-            message:'Post helpful reaction added'
+            message:POST_MESSAGES.HELPFUL_REACTION_ADDED
         }
 
     }
@@ -64,12 +65,12 @@ export class PostReactionService {
 
         if (result.affected === 0) {
             throw new NotFoundException(
-                'Helpful reaction not found',
+                POST_MESSAGES.HELPFUL_REACTION_NOT_FOUND,
             );
         }
 
         return {
-            message: 'Post helpful reaction removed',
+            message: POST_MESSAGES.HELPFUL_REACTION_REMOVED,
         };
 
     }

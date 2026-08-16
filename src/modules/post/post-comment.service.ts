@@ -6,6 +6,7 @@ import { Repository } from "typeorm";
 import { PostEntity } from "./entities/post.entity";
 import { PaginationQueryDto } from "src/shared/dto/pagination-query.dto";
 import { UserEntity } from "../user/entities/user.entity";
+import { POST_MESSAGES } from "src/shared/constants/messages/post.messages";
 
 
 @Injectable()
@@ -25,7 +26,7 @@ export class PostCommentService {
         });
 
         if (!post) {
-            throw new NotFoundException('post not found')
+            throw new NotFoundException(POST_MESSAGES.POST_NOT_FOUND)
         }
 
         const comment = this.postCommentRepository.create({

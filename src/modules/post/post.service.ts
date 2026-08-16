@@ -15,6 +15,7 @@ import { PollInputDto } from './dto/poll-input.dto';
 import { PostPollEntity } from './entities/post-poll.entity';
 import { PostPollOptionEntity } from './entities/post-poll-option.entity';
 import { PostType } from './enums/post-type.enum';
+import { POST_MESSAGES } from 'src/shared/constants/messages/post.messages';
 @Injectable()
 export class PostService {
 
@@ -43,7 +44,7 @@ export class PostService {
 
             if (uploads.length !== uploadIds.length) {
                 throw new NotFoundException(
-                    'One or more attachments are invalid',
+                    POST_MESSAGES.ONE_OR_MORE_ATTACHMENTS_ARE_INVALID,
                 );
             }
 
@@ -315,7 +316,7 @@ export class PostService {
         });
 
         if (!post) {
-            throw new NotFoundException('Post not found');
+            throw new NotFoundException(POST_MESSAGES.POST_NOT_FOUND);
         }
 
         return post;

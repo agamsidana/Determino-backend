@@ -4,6 +4,7 @@ import { DataSource } from "typeorm";
 import { PostEntity } from "./entities/post.entity";
 import { PostPollOptionEntity } from "./entities/post-poll-option.entity";
 import { PostPollVoteEntity } from "./entities/post-poll-vote.entity";
+import { POST_MESSAGES } from "src/shared/constants/messages/post.messages";
 
 
 @Injectable()
@@ -30,12 +31,12 @@ export class PostPollService {
             });
 
             if (!post) {
-                throw new NotFoundException('post not found');
+                throw new NotFoundException(POST_MESSAGES.POST_NOT_FOUND);
             }
 
             // 2. Make sure this post actually has a poll
             if (!post.poll) {
-                throw new BadRequestException('This post does not contain poll')
+                throw new BadRequestException(POST_MESSAGES.POST_DOES_NOT_CONTAIN_POLL)
             }
 
 
@@ -51,7 +52,7 @@ export class PostPollService {
 
             if (!option) {
                 throw new NotFoundException(
-                    'Poll option not found',
+                    POST_MESSAGES.POLL_OPTION_NOT_FOUND,
                 );
             }
 
@@ -70,7 +71,7 @@ export class PostPollService {
 
             if (existingVote) {
                 throw new ConflictException(
-                    'You have already voted in this poll',
+                    POST_MESSAGES.ALREADY_VOTED_IN_THIS_POLL,
                 );
             }
 

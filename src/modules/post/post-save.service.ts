@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { PostSaveEntity } from "./entities/post-save.entity";
 import { Repository } from "typeorm";
 import { PostEntity } from "./entities/post.entity";
+import { POST_MESSAGES } from "src/shared/constants/messages/post.messages";
 
 
 
@@ -21,7 +22,7 @@ export class PostSaveService{
         });
 
         if(!post){
-            throw new NotFoundException('post not found');
+            throw new NotFoundException(POST_MESSAGES.POST_NOT_FOUND);
         }
 
         const postSave=this.postSaveRepository.create({
@@ -34,7 +35,7 @@ export class PostSaveService{
         }
         catch(err:any){
             if(err.code === '23505'){
-                throw new ConflictException('post alread saved')
+                throw new ConflictException(POST_MESSAGES.POST_ALREADY_SAVED)
             }
             
             throw err;
@@ -57,7 +58,7 @@ export class PostSaveService{
         });
 
         if(result.affected === 0){
-            throw new NotFoundException('saved post not found')
+            throw new NotFoundException(POST_MESSAGES.SAVED_POST_NOT_FOUND)
         }
 
         return {
