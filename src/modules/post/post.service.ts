@@ -137,6 +137,7 @@ export class PostService {
 
             .leftJoinAndSelect('post.user', 'user')
             .leftJoinAndSelect('user.profile', 'profile')
+            .leftJoinAndSelect('profile.exam', 'exam')
 
             .leftJoin(
                 'post.reactions',
@@ -174,6 +175,7 @@ export class PostService {
             .groupBy('post.id')
             .addGroupBy('user.id')
             .addGroupBy('profile.id')
+            .addGroupBy('exam.id')  
 
             .skip(skip)
             .take(limit);
@@ -262,6 +264,7 @@ export class PostService {
                 author: {
                     id: post.user.id,
                     name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
+                    exam: post.user.profile.exam?.name ?? null
                     
                 },
 
