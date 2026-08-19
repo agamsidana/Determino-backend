@@ -97,7 +97,7 @@ export class PostService {
             let savedPoll: { id: string; options: { id: string; text: string; position: number }[] } | null = null;
 
 
-            if (poll && type!==PostType.QUESTION) {
+            if (poll && type !== PostType.QUESTION) {
                 savedPoll = await this.createPoll(manager, savedPost.id, poll);
             }
 
@@ -118,7 +118,7 @@ export class PostService {
                         fileSize: attachment.fileSize,
                         url: attachment.url
                     })),
-                    poll:savedPoll,
+                    poll: savedPoll,
                     createdAt: savedPost.createdAt
                 }
             }
@@ -176,7 +176,7 @@ export class PostService {
             .groupBy('post.id')
             .addGroupBy('user.id')
             .addGroupBy('profile.id')
-            .addGroupBy('exam.id')  
+            .addGroupBy('exam.id')
 
             .skip(skip)
             .take(limit);
@@ -266,7 +266,7 @@ export class PostService {
                     id: post.user.id,
                     name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
                     exam: post.user.profile.exam?.name ?? null
-                    
+
                 },
 
                 helpfulCount: Number(raw[index].helpfulCount),
@@ -322,6 +322,35 @@ export class PostService {
         return post;
 
     }
+
+    async suggestHashtags(q: string | undefined, limit: number) {
+
+        const search = q?.trim().toLowerCase();
+
+        // 1. If no seach query than return empty array
+        if (!search) {
+            return {
+                data: {
+                    hashtags: []
+                }
+            }
+        }
+
+        // 2. Otherwise return more likely matched
+        const result = await this.hashtagRepository
+            .createQueryBuilder('h')
+            .select(['h.id', 'h.name'])
+            .where('h.name ILIKE :q', {
+                q: `${search}%`
+            })
+            .orderBy('h.name', 'ASC')
+            .limit(limit)
+            .getMany()
+
+        return { data: { hashtags: result.map((h) => ({ id: h.id, name: h.name })) } };
+
+    }
+
 
     private async normalizeHashTags(manager: EntityManager, hashtags?: string[]): Promise<HashTagEntity[]> {
 

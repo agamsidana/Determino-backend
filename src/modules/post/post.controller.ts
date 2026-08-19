@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { PostService } from './post.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserEntity } from '../user/entities/user.entity';
@@ -35,6 +35,11 @@ export class PostController {
     @Get()
     async getPosts(@Query() query:PaginationQueryDto, @CurrentUser() user:UserEntity){
         return await this.postService.getPosts(query,user.id);
+    }
+
+    @Get('hashtags/suggest')
+    async suggestHashtags(@Query('q') q:string | undefined,@Query('limit',new DefaultValuePipe(3),new ParseIntPipe()) limit:number){
+        return await this.postService.suggestHashtags(q,limit);
     }
 
     @Post(':postId/comment')
