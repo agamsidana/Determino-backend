@@ -20,7 +20,7 @@ import { PostSaveService } from './post-save.service';
 import { ProfileEntity } from '../profile/entities/profile.entity';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity])],
+  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity,PostPollOptionEntity,PostPollVoteEntity])],
   providers: [PostService,PostReactionService,PostAttachmentService,PostPollService,PostCommentService,PostSaveService],
   controllers: [PostController]
 })

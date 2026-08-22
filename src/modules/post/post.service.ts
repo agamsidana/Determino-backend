@@ -18,10 +18,12 @@ import { PostType } from './enums/post-type.enum';
 import { POST_MESSAGES } from 'src/shared/constants/messages/post.messages';
 import { UserEntity } from '../user/entities/user.entity';
 import { ProfileEntity } from '../profile/entities/profile.entity';
+import { PostPollVoteEntity } from './entities/post-poll-vote.entity';
+import { PollResult } from './interfaces/poll-result.interface';
 @Injectable()
 export class PostService {
 
-    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, @InjectRepository(PostAttachmentEntity) private readonly postAttachmentRepository: Repository<PostAttachmentEntity>, @InjectRepository(ProfileEntity) private profileRepository: Repository<ProfileEntity>, private supabaseStorageService: SupabaseStorageService, private readonly dataSource: DataSource) { }
+    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, @InjectRepository(PostAttachmentEntity) private readonly postAttachmentRepository: Repository<PostAttachmentEntity>, @InjectRepository(ProfileEntity) private profileRepository: Repository<ProfileEntity>, @InjectRepository(PostPollOptionEntity) private readonly postPollOptionRepository:Repository<PostPollOptionEntity>, @InjectRepository(PostPollVoteEntity) private readonly postPollVoteRepository:Repository<PostPollVoteEntity>, private supabaseStorageService: SupabaseStorageService, private readonly dataSource: DataSource) { }
 
     async createPost(user: UserEntity, dto: CreatePostDto) {
 
@@ -129,7 +131,7 @@ export class PostService {
                 }),
             );
 
-            let savedPoll: { id: string; options: { id: string; text: string; position: number }[] } | null = null;
+            let savedPoll: PollResult | null = null;
 
 
             if (poll && type !== PostType.QUESTION) {
@@ -314,6 +316,77 @@ export class PostService {
             );
         }
 
+        const postWithHashtags = postIds.length ? await this.postRepository.find({
+            where:{
+                id:In(postIds),
+            },
+            relations:{
+                hashtags:true
+            }
+        }) : [];
+
+        const hashtagsByPost = new Map(
+            postWithHashtags.map((p)=>[
+                p.id,
+                p.hashtags.map((h)=> ({id:h.id,name:h.name}))
+            ])
+        );
+
+
+        const pollsRaw = postIds.length ? await this.postPollOptionRepository
+                        .createQueryBuilder('option')
+                        .innerJoin('option.postPoll','poll')
+                        .innerJoin('poll.post', 'post')
+                        .leftJoin('option.votes', 'vote')
+                        .addSelect('COUNT(DISTINCT vote.id)', 'voteCount')
+                        .addSelect('poll.id','pollId')
+                        .addSelect('post.id','postId')
+                        .where('post.id IN (:...postIds)',{postIds})
+                        .groupBy('option.id')
+                        .addGroupBy('poll.id')
+                        .addGroupBy('post.id')
+                        .orderBy('option.position', 'ASC')
+                        .getRawAndEntities()
+                    : {entities:[],raw:[]};
+        
+        const userVotes = postIds.length
+                ? await this.postPollVoteRepository.find({
+                    where:{
+                        user:{id:userId},
+                        poll:{
+                            post:{
+                                id:In(postIds)
+                            }
+                        }
+                    },
+                    relations:{option:true,poll:true}
+                })
+                : [];
+        
+        const votedOptionByPoll = new Map(userVotes.map((v)=>[v.poll.id,v.option.id]));
+
+        const pollByPost = new Map<string,PollResult>();
+
+        pollsRaw.entities.forEach((option,idx)=>{
+            const raw = pollsRaw.raw[idx];
+            const postId = raw.postId;
+            const pollId = raw.pollId;
+
+            const existing:PollResult = pollByPost.get(postId) ?? {id:pollId,options:[]};
+
+            existing.options.push({
+                id:option.id,
+                text:option.text,
+                position:option.position,
+                voteCount:Number(raw.voteCount),
+                isSelected:votedOptionByPoll.get(pollId) === option.id     
+            });
+
+            pollByPost.set(postId,existing);
+
+        })
+
+
         const transformedPosts = entities.map((post, index) => {
 
             const postAttachments = attachmentsByPost.get(post.id) ?? [];
@@ -336,6 +409,9 @@ export class PostService {
 
                 isSaved: raw[index].isSaved === true || raw[index].isSaved === 'true',
                 isHelpful: raw[index].isHelpful === true || raw[index].isHelpful === 'true',
+
+                hashtags:hashtagsByPost.get(post.id) ?? [],
+                poll: pollByPost.get(post.id) ?? null,
 
                 attachments: postAttachments.map(
                     attachment => ({
@@ -422,7 +498,7 @@ export class PostService {
             return [];
         }
 
-        const names = [...new Set(hashtags.map(h => h.trim().toLowerCase()).filter(Boolean))];
+        const names = [...new Set(hashtags.map(h => h.trim().replace(/^#/, '').toLowerCase()).filter(Boolean))];
 
         const existing = await manager.find(HashTagEntity, {
             where: {
@@ -476,6 +552,8 @@ export class PostService {
                 id: option.id,
                 text: option.text,
                 position: option.position,
+                voteCount: 0,
+                isSelected: false
             })),
         };
 
