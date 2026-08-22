@@ -16,12 +16,25 @@ import { PostPollEntity } from './entities/post-poll.entity';
 import { PostPollOptionEntity } from './entities/post-poll-option.entity';
 import { PostType } from './enums/post-type.enum';
 import { POST_MESSAGES } from 'src/shared/constants/messages/post.messages';
+import { UserEntity } from '../user/entities/user.entity';
+import { ProfileEntity } from '../profile/entities/profile.entity';
 @Injectable()
 export class PostService {
 
-    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, @InjectRepository(PostAttachmentEntity) private readonly postAttachmentRepository: Repository<PostAttachmentEntity>, private supabaseStorageService: SupabaseStorageService, private readonly dataSource: DataSource) { }
+    constructor(@InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(PostReactionEntity) private readonly postReactionRepository: Repository<PostReactionEntity>, @InjectRepository(HashTagEntity) private readonly hashtagRepository: Repository<HashTagEntity>, @InjectRepository(PostAttachmentEntity) private readonly postAttachmentRepository: Repository<PostAttachmentEntity>, @InjectRepository(ProfileEntity) private profileRepository: Repository<ProfileEntity>, private supabaseStorageService: SupabaseStorageService, private readonly dataSource: DataSource) { }
 
-    async createPost(userId: string, dto: CreatePostDto) {
+    async createPost(user: UserEntity, dto: CreatePostDto) {
+
+        const profile = await this.profileRepository.findOne({
+            where: {
+                user: {
+                    id: user.id
+                },
+            },
+            relations: {
+                exam: true
+            }
+        })
 
         const { content, type, hashtags, attachments, poll } = dto;
 
@@ -37,7 +50,7 @@ export class PostService {
             const uploads = uploadIds.length ? await manager.find(PostUploadEntity, {
                 where: {
                     id: In(uploadIds),
-                    userId,
+                    userId: user.id,
                     isUsed: false
                 }
             }) : [];
@@ -53,7 +66,7 @@ export class PostService {
                 type,
                 hashtags: normalizeHashtags,
                 user: {
-                    id: userId
+                    id: user.id
                 }
             });
 
@@ -94,6 +107,28 @@ export class PostService {
                 await manager.save(uploads);
             }
 
+            const attachmentsWithUrls = await Promise.all(
+                savedPostAttachments.map(async (attachment) => {
+
+                    const url = attachment.type === PostAttachmentType.LINK
+                        ? attachment.url
+                        : await this.supabaseStorageService.createDownloadUrl(
+                            'post-attachments',
+                            attachment.storagePath,
+                            60 * 60,
+                        );
+
+                    return {
+                        id: attachment.id,
+                        type: attachment.type,
+                        fileName: attachment.fileName,
+                        mimeType: attachment.mimeType,
+                        fileSize: attachment.fileSize,
+                        url,
+                    };
+                }),
+            );
+
             let savedPoll: { id: string; options: { id: string; text: string; position: number }[] } | null = null;
 
 
@@ -106,20 +141,25 @@ export class PostService {
                     id: savedPost.id,
                     content: savedPost.content,
                     type: savedPost.type,
+                    createdAt: savedPost.createdAt,
+
+                    author: {
+                        id: user.id,
+                        name: `${user.profile.firstName} ${user.profile.lastName}`,
+                        exam: profile?.exam?.name ?? null
+                    },
+
+                    helpfulCount: 0,
+                    isHelpful: false,
+                    isSaved: false,
+                    replyCount: 0,
+
                     hashtags: normalizeHashtags.map(hashtag => ({
                         id: hashtag.id,
                         name: hashtag.name
                     })),
-                    attachments: savedPostAttachments.map(attachment => ({
-                        id: attachment.id,
-                        type: attachment.type,
-                        fileName: attachment.fileName,
-                        mimeType: attachment.mimeType,
-                        fileSize: attachment.fileSize,
-                        url: attachment.url
-                    })),
+                    attachments: attachmentsWithUrls,
                     poll: savedPoll,
-                    createdAt: savedPost.createdAt
                 }
             }
 
@@ -148,14 +188,26 @@ export class PostService {
                     reactionType: ReactionType.HELPFUL,
                 },
             )
+            .leftJoin(
+                'post.comments',
+                'comment',
+                'comment.isDeleted = :isDeleted',
+                {
+                    isDeleted: false
+                }
+            )
 
             .where('post.isDeleted = :isDeleted', {
                 isDeleted: false,
             })
 
             .addSelect(
-                'COUNT(reaction.id)',
+                'COUNT(DISTINCT reaction.id)',
                 'helpfulCount',
+            )
+            .addSelect(
+                'COUNT(DISTINCT comment.id)',
+                'replyCount'
             )
 
             .addSelect(
@@ -167,6 +219,16 @@ export class PostService {
             AND user_reaction.type = :reactionType
         )`,
                 'isHelpful',
+            )
+
+            .addSelect(
+                `EXISTS (
+                SELECT 1 
+                FROM post_saves user_save
+                 WHERE user_save."postId" = post.id
+                 AND user_save."userId" = :userId
+                )`,
+                'isSaved'
             )
 
             .setParameter('userId', userId)
@@ -270,7 +332,9 @@ export class PostService {
                 },
 
                 helpfulCount: Number(raw[index].helpfulCount),
+                replyCount: Number(raw[index].replyCount),
 
+                isSaved: raw[index].isSaved === true || raw[index].isSaved === 'true',
                 isHelpful: raw[index].isHelpful === true || raw[index].isHelpful === 'true',
 
                 attachments: postAttachments.map(
