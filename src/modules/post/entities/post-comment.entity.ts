@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { PostEntity } from "./post.entity";
 import { UserEntity } from "src/modules/user/entities/user.entity";
+import { PostCommentLikeEntity } from "./post-comment-like.entity";
 
 
 @Entity({name:'post_comments'})
@@ -23,5 +24,8 @@ export class PostCommentEntity {
 
     @ManyToOne(()=>UserEntity,(user)=>user.postComments,{onDelete:'CASCADE',nullable:false})
     user!:UserEntity;
+
+    @OneToMany(()=>PostCommentLikeEntity,(postCommentLike)=>postCommentLike.comment)
+    likes!:PostCommentLikeEntity[];
 
 }

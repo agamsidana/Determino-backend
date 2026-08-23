@@ -59,8 +59,8 @@ export class PostController {
     }
 
     @Get(':postId/comment')
-    async getComments(@Param('postId') postId: string, @Query() query: PaginationQueryDto) {
-        return await this.postCommentService.getComments(postId, query);
+    async getComments(@Param('postId') postId: string, @CurrentUser() user:UserEntity,@Query() query: PaginationQueryDto) {
+        return await this.postCommentService.getComments(postId,user.id,query);
 
     }
 
@@ -77,6 +77,16 @@ export class PostController {
     @Delete(':postId/save')
     async unsavePost(@Param('postId') postId: string, @CurrentUser() user: UserEntity) {
         return this.postSaveService.unsavePost(postId, user.id);
+    }
+
+    @Post('comment/:commentId/like')
+    async likeComment(@Param('commentId') commentId: string, @CurrentUser() user: UserEntity) {
+        return await this.postCommentService.likeComment(commentId, user.id)
+    }
+
+    @Delete('comment/:commentId/like')
+    async unlikeComment(@Param('commentId') commentId: string, @CurrentUser() user: UserEntity) {
+        return await this.postCommentService.unlikeComment(commentId, user.id)
     }
 
     @Post(':postId/helpful')

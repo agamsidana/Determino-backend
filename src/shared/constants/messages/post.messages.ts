@@ -9,5 +9,10 @@ export const POST_MESSAGES = {
     HELPFUL_REACTION_ADDED: 'Post helpful reaction added',
     HELPFUL_REACTION_REMOVED: 'Post helpful reaction removed',
     HELPFUL_REACTION_NOT_FOUND: 'Helpful reaction not found',
-    ONE_OR_MORE_ATTACHMENTS_ARE_INVALID: 'One or more attachments are invalid'
+    ONE_OR_MORE_ATTACHMENTS_ARE_INVALID: 'One or more attachments are invalid',
+    COMMENT_NOT_FOUND:'Comment not found',
+    LIKE_NOT_FOUND:'Like not found',
+    COMMENT_ALREADY_LIKED:'Comment already liked',
+    POST_COMMENT_LIKE_ADDED:'Post comment like added',
+    POST_COMMENT_LIKE_REMOVED:'Post comment like removed'
 }

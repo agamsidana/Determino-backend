@@ -1,3 +1,4 @@
+import { PostCommentLikeEntity } from "src/modules/post/entities/post-comment-like.entity";
 import { PostCommentEntity } from "src/modules/post/entities/post-comment.entity";
 import { PostPollVoteEntity } from "src/modules/post/entities/post-poll-vote.entity";
 import { PostReactionEntity } from "src/modules/post/entities/post-reaction.entity";
@@ -50,5 +51,8 @@ export class UserEntity {
 
     @OneToMany(()=>PostSaveEntity,(postSave)=>postSave.user)
     postSaves!:PostSaveEntity[];
+
+    @OneToMany(()=>PostCommentLikeEntity,(postCommentLike)=>postCommentLike.user)
+    commentLikes!:PostCommentLikeEntity[];
 
 }

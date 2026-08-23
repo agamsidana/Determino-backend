@@ -18,9 +18,10 @@ import { PostCommentEntity } from './entities/post-comment.entity';
 import { PostSaveEntity } from './entities/post-save.entity';
 import { PostSaveService } from './post-save.service';
 import { ProfileEntity } from '../profile/entities/profile.entity';
+import { PostCommentLikeEntity } from './entities/post-comment-like.entity';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity,PostPollOptionEntity,PostPollVoteEntity])],
+  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentLikeEntity])],
   providers: [PostService,PostReactionService,PostAttachmentService,PostPollService,PostCommentService,PostSaveService],
   controllers: [PostController]
 })
