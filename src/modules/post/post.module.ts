@@ -19,10 +19,13 @@ import { PostSaveEntity } from './entities/post-save.entity';
 import { PostSaveService } from './post-save.service';
 import { ProfileEntity } from '../profile/entities/profile.entity';
 import { PostCommentLikeEntity } from './entities/post-comment-like.entity';
+import { QuestionAnswerEntity } from './entities/question-answer.entity';
+import { AnswerVoteEntity } from './entities/answer-vote.entity';
+import { QuestionService } from './question.service';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentLikeEntity])],
-  providers: [PostService,PostReactionService,PostAttachmentService,PostPollService,PostCommentService,PostSaveService],
+  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentLikeEntity,QuestionAnswerEntity,AnswerVoteEntity])],
+  providers: [PostService,PostReactionService,PostAttachmentService,PostPollService,PostCommentService,PostSaveService,QuestionService],
   controllers: [PostController]
 })
 export class PostModule {}

@@ -7,6 +7,7 @@ import { PostAttachmentEntity } from "./post-attachment.entity";
 import { PostPollEntity } from "./post-poll.entity";
 import { PostCommentEntity } from "./post-comment.entity";
 import { PostSaveEntity } from "./post-save.entity";
+import { QuestionAnswerEntity } from "./question-answer.entity";
 
 @Entity({ name: 'posts' })
 export class PostEntity {
@@ -60,5 +61,8 @@ export class PostEntity {
 
     @OneToMany(()=>PostSaveEntity,(postSave)=>postSave.post)
     saves!:PostSaveEntity[];
+
+    @OneToMany(()=>QuestionAnswerEntity,(questionAnswer)=>questionAnswer.post)
+    answers!:QuestionAnswerEntity[]
 
 }

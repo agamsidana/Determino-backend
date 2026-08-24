@@ -14,13 +14,15 @@ import { PostPollService } from './post-poll.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { PostCommentService } from './post-comment.service';
 import { PostSaveService } from './post-save.service';
+import { CreateAnswerDto } from './dto/create-answer.dto';
+import { QuestionService } from './question.service';
 
 @Controller('post')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class PostController {
 
-    constructor(private readonly postService: PostService, private readonly postReactionService: PostReactionService, private readonly postAttachmentService: PostAttachmentService, private readonly postPollService: PostPollService, private readonly postCommentService: PostCommentService, private readonly postSaveService: PostSaveService) { }
+    constructor(private readonly postService: PostService, private readonly postReactionService: PostReactionService, private readonly postAttachmentService: PostAttachmentService, private readonly postPollService: PostPollService, private readonly postCommentService: PostCommentService, private readonly postSaveService: PostSaveService, private readonly questionService:QuestionService) { }
 
     @Post()
     async createPost(@CurrentUser() user: UserEntity, @Body() dto: CreatePostDto) {
@@ -64,6 +66,16 @@ export class PostController {
 
     }
 
+    @Post('question/:questionId/answer')
+    async submitAnswer(@Param('questionId') questionId:string, @CurrentUser() user:UserEntity,@Body() dto:CreateAnswerDto){
+        return await this.questionService.submitAnswer(questionId,user,dto)
+    }
+
+    @Get('question/:questionId/answer')
+    async getAnswers(@Param('questionId') questionId:string, @CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto ){
+        return await this.questionService.getAnswers(questionId,user,query);
+    }
+
     @Post(':postId/poll/vote')
     async voteOnPoll(@Param('postId') postId: string, @CurrentUser() user: UserEntity, @Body() dto: VotePollDto) {
         return await this.postPollService.voteOnPoll(postId, user.id, dto);
@@ -87,6 +99,16 @@ export class PostController {
     @Delete('comment/:commentId/like')
     async unlikeComment(@Param('commentId') commentId: string, @CurrentUser() user: UserEntity) {
         return await this.postCommentService.unlikeComment(commentId, user.id)
+    }
+
+    @Post('answer/:answerId/vote')
+    async voteAnswer(@Param('answerId') answerId:string,@CurrentUser() user:UserEntity){
+        return await this.questionService.voteAnswer(answerId,user.id);
+    }
+
+    @Delete('answer/:answerId/vote')
+    async unvoteAnswer(@Param('answerId') answerId:string,@CurrentUser() user:UserEntity){
+        return await this.questionService.unvoteAnswer(answerId,user.id);
     }
 
     @Post(':postId/helpful')
