@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { QuestionAnswerEntity } from "./entities/question-answer.entity";
 import { Repository } from "typeorm";
@@ -8,11 +8,11 @@ import { PostType } from "./enums/post-type.enum";
 import { UserEntity } from "../user/entities/user.entity";
 import { PaginationQueryDto } from "src/shared/dto/pagination-query.dto";
 import { AnswerVoteEntity } from "./entities/answer-vote.entity";
-
+import { DataSource } from "typeorm";
 
 @Injectable()
 export class QuestionService {
-    constructor(@InjectRepository(QuestionAnswerEntity) private readonly answerRepository: Repository<QuestionAnswerEntity>,@InjectRepository(AnswerVoteEntity) private readonly answerVoteRepository:Repository<AnswerVoteEntity>, @InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>) { }
+    constructor(@InjectRepository(QuestionAnswerEntity) private readonly answerRepository: Repository<QuestionAnswerEntity>,@InjectRepository(AnswerVoteEntity) private readonly answerVoteRepository:Repository<AnswerVoteEntity>, @InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>,private readonly dataSource:DataSource) { }
 
     async submitAnswer(questionId: string, user: UserEntity, dto: CreateAnswerDto) {
 
@@ -196,6 +196,46 @@ export class QuestionService {
             message:'answer vote removed'
         }
 
+    }
+
+    async acceptAnswer(answerId:string,userId:string){
+
+        return this.dataSource.transaction(async (manager)=>{
+
+            const answer = await manager.findOne(QuestionAnswerEntity,{
+                where:{
+                    id:answerId,
+                    isDeleted:false
+                },
+                relations:{
+                    post:{user:true}
+                }
+            });
+
+            if(!answer){
+                throw new NotFoundException('Answer not found');
+            }
+
+            if(answer.post.user.id !== userId){
+                throw new ForbiddenException('Only the question author can accept an answer');
+            }
+
+            await manager.update(QuestionAnswerEntity,
+                {post:{id:answer.post.id},isAccepted:true},
+                {isAccepted:false}
+            );
+
+            answer.isAccepted = true;
+            await manager.save(answer);
+
+            return {
+                data:{
+                    id:answer.id,
+                    isAccepted:true
+                }
+            }
+
+        })
     }
 
 }

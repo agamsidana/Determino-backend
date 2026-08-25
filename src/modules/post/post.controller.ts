@@ -111,6 +111,11 @@ export class PostController {
         return await this.questionService.unvoteAnswer(answerId,user.id);
     }
 
+    @Post('answer/:answerId/accept')
+    async acceptAnswer(@Param('answerId') answerId:string, @CurrentUser() user:UserEntity){
+        return this.questionService.acceptAnswer(answerId,user.id)
+    }
+
     @Post(':postId/helpful')
     async addHelpful(@Param('postId') postId: string, @CurrentUser() user: UserEntity) {
         return await this.postReactionService.addHelpful(postId, user.id)
