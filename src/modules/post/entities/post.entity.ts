@@ -7,6 +7,7 @@ import { PostAttachmentEntity } from "./post-attachment.entity";
 import { PostPollEntity } from "./post-poll.entity";
 import { PostCommentEntity } from "./post-comment.entity";
 import { PostSaveEntity } from "./post-save.entity";
+import { QuestionAnswerEntity } from "./question-answer.entity";
 
 @Entity({ name: 'posts' })
 export class PostEntity {
@@ -16,6 +17,9 @@ export class PostEntity {
 
     @Column()
     content!: string;
+
+    @Column({nullable:true}) // must remove nullable after testing
+    title!:string;
 
     @Column({ type: 'enum', enum: PostType })
     type!: PostType;
@@ -60,5 +64,8 @@ export class PostEntity {
 
     @OneToMany(()=>PostSaveEntity,(postSave)=>postSave.post)
     saves!:PostSaveEntity[];
+
+    @OneToMany(()=>QuestionAnswerEntity,(questionAnswer)=>questionAnswer.post)
+    answers!:QuestionAnswerEntity[]
 
 }

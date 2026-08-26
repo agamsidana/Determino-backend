@@ -1,11 +1,17 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { ArrayMaxSize, IsArray, IsEnum, IsOptional, IsString, MaxLength, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsEnum, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from "class-validator";
 import { PostType } from "../enums/post-type.enum";
 import { CreatePostAttachmentDto } from "./create-post-attachment.dto";
 import { Type } from "class-transformer";
 import { PollInputDto } from "./poll-input.dto";
 
 export class CreatePostDto{
+
+    @ApiProperty()
+    @IsString()
+    @MinLength(10)
+    @MaxLength(200)
+    title!:string;
 
     @ApiProperty()
     @IsString()

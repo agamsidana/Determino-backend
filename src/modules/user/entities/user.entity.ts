@@ -1,9 +1,11 @@
+import { AnswerVoteEntity } from "src/modules/post/entities/answer-vote.entity";
 import { PostCommentLikeEntity } from "src/modules/post/entities/post-comment-like.entity";
 import { PostCommentEntity } from "src/modules/post/entities/post-comment.entity";
 import { PostPollVoteEntity } from "src/modules/post/entities/post-poll-vote.entity";
 import { PostReactionEntity } from "src/modules/post/entities/post-reaction.entity";
 import { PostSaveEntity } from "src/modules/post/entities/post-save.entity";
 import { PostEntity } from "src/modules/post/entities/post.entity";
+import { QuestionAnswerEntity } from "src/modules/post/entities/question-answer.entity";
 import { ProfileEntity } from "src/modules/profile/entities/profile.entity";
 import { StudySessionEntity } from "src/modules/study-session/entities/study-session.entity";
 import { Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
@@ -54,5 +56,11 @@ export class UserEntity {
 
     @OneToMany(()=>PostCommentLikeEntity,(postCommentLike)=>postCommentLike.user)
     commentLikes!:PostCommentLikeEntity[];
+
+    @OneToMany(()=>QuestionAnswerEntity,(questionAnswer)=>questionAnswer.user)
+    answers!:QuestionAnswerEntity[];
+
+    @OneToMany(()=>AnswerVoteEntity,(answerVote)=>answerVote.user)
+    answerVotes!:AnswerVoteEntity[]
 
 }
