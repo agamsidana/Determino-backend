@@ -18,6 +18,9 @@ export class PostEntity {
     @Column()
     content!: string;
 
+    @Column({nullable:true})
+    title!:string;
+
     @Column({ type: 'enum', enum: PostType })
     type!: PostType;
 

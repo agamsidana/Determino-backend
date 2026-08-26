@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { QuestionAnswerEntity } from "./entities/question-answer.entity";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { PostEntity } from "./entities/post.entity";
 import { CreateAnswerDto } from "./dto/create-answer.dto";
 import { PostType } from "./enums/post-type.enum";
@@ -9,10 +9,198 @@ import { UserEntity } from "../user/entities/user.entity";
 import { PaginationQueryDto } from "src/shared/dto/pagination-query.dto";
 import { AnswerVoteEntity } from "./entities/answer-vote.entity";
 import { DataSource } from "typeorm";
+import { CreateQuestionDto } from "./dto/create-question.dto";
+import { ProfileEntity } from "../profile/entities/profile.entity";
+import { PostService } from "./post.service";
+import { ReactionType } from "./enums/reaction-type.enum";
 
 @Injectable()
 export class QuestionService {
-    constructor(@InjectRepository(QuestionAnswerEntity) private readonly answerRepository: Repository<QuestionAnswerEntity>,@InjectRepository(AnswerVoteEntity) private readonly answerVoteRepository:Repository<AnswerVoteEntity>, @InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>,private readonly dataSource:DataSource) { }
+    constructor(@InjectRepository(QuestionAnswerEntity) private readonly answerRepository: Repository<QuestionAnswerEntity>,@InjectRepository(AnswerVoteEntity) private readonly answerVoteRepository:Repository<AnswerVoteEntity>, @InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(ProfileEntity) private readonly profileRepository:Repository<ProfileEntity>,private readonly postService:PostService,private readonly dataSource:DataSource) { }
+
+
+    async createQuestion(user:UserEntity,dto:CreateQuestionDto){
+
+        const {title,content,hashtags}=dto;
+
+        const profile = await this.profileRepository.findOne({
+            where:{
+                user:{id:user.id}
+            },
+            relations:{exam:true}
+        });
+
+        return this.dataSource.transaction(async (manager)=>{
+            const normalizeHashtags = await this.postService.normalizeHashTags(manager,hashtags);
+
+            const question = manager.create(PostEntity,{
+                title,
+                content:content ?? null,
+                type:PostType.QUESTION,
+                hashtags:normalizeHashtags,
+                user:{id:user.id}
+            });
+
+            const savedQuestion = await manager.save(question);
+
+            return {
+                data:{
+                    id:savedQuestion.id,
+                    title:savedQuestion.title,
+                    content:savedQuestion.content,
+                    type:savedQuestion.type,
+                    createdAt:savedQuestion.createdAt,
+
+                    author:{
+                        id:user.id,
+                        name:`${user.profile.firstName} ${user.profile.lastName}`,
+                        exam:profile?.exam?.name ?? null
+                    },
+
+                    upvoteCount:0,
+                    isUpvoted:false,
+                    isSaved:false,
+                    answerCount:0,
+                    hasAcceptedAnswer:false,
+
+                    hashtags: normalizeHashtags.map(h=>({id:h.id,name:h.name}))
+
+
+                }
+            }
+
+        });
+
+
+
+    }
+
+    async getQuestions(query:PaginationQueryDto,userId:string){
+
+        const { page, limit } = query;
+        const skip = (page - 1) * limit;
+
+        const queryBuilder = this.postRepository
+                             .createQueryBuilder('post')
+
+                             .leftJoinAndSelect('post.user','user')
+                             .leftJoinAndSelect('user.profile','profile')
+                             .leftJoinAndSelect('profile.exam','exam')
+
+                             .leftJoin('post.reactions','reaction','reaction.type = :reactionType',{
+                                reactionType:ReactionType.HELPFUL
+                             })
+                             .leftJoin('post.answers','answer','answer.isDeleted = :isDeleted',{
+                                isDeleted:false
+                             })
+
+                             .where('post.isDeleted = :isDeleted',{isDeleted:false})
+                             .andWhere('post.type = :type',{type:PostType.QUESTION})
+
+                             .addSelect('COUNT(DISTINCT reaction.id)','upvoteCount')
+                             .addSelect('COUNT(DISTINCT answer.id)','answerCount')
+
+                             .addSelect(
+                                `
+                                EXISTS (
+                                    SELECT 1 FROM post_reactions user_reaction
+                                    WHERE user_reaction."postId" = post.id
+                                    AND user_reaction."userId" = :userId
+                                    AND user_reaction.type = :reactionType 
+                                )
+                                `,
+                                'isUpvoted'
+                             )
+
+                              .addSelect(
+                                    `EXISTS (
+                                        SELECT 1 FROM post_saves user_save
+                                        WHERE user_save."postId" = post.id
+                                            AND user_save."userId" = :userId
+                                    )`,
+                                    'isSaved',
+                                )
+
+                            .addSelect(
+                                `EXISTS (
+                                    SELECT 1 FROM question_answers qa
+                                    WHERE qa."postId" = post.id
+                                        AND qa."isAccepted" = true
+                                )`,
+                                'hasAcceptedAnswer',
+                            )
+
+                            .setParameter('userId',userId)
+                            .setParameter('reactionType',ReactionType.HELPFUL)
+
+                            .orderBy('post.createdAt','DESC')
+
+                            .groupBy('post.id')
+                            .addGroupBy('user.id')
+                            .addGroupBy('profile.id')
+                            .addGroupBy('exam.id')
+
+                            .skip(skip)
+                            .take(limit)
+
+        const {entities,raw} = await queryBuilder.getRawAndEntities();
+
+        const postIds = entities.map(post =>post.id);
+
+        const postsWithHashtags = postIds.length
+                                ? await this.postRepository.find({
+                                    where:{
+                                        id:In(postIds),
+                                    },
+                                    relations:{
+                                        hashtags:true
+                                    }
+                                })
+                                : [];
+
+        const hashtagsByPost = new Map(
+           postsWithHashtags.map((p) => [p.id, p.hashtags.map((h) => ({ id: h.id, name: h.name }))])
+        );
+
+        const transformedQuestions = entities.map((post, index) => ({
+            id: post.id,
+            title: post.title,
+            content: post.content,
+            type: post.type,
+            createdAt: post.createdAt,
+
+            author: {
+                id: post.user.id,
+                name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
+                exam: post.user.profile.exam?.name ?? null,
+            },
+
+            upvoteCount: Number(raw[index].upvoteCount),
+            isUpvoted: raw[index].isUpvoted === true || raw[index].isUpvoted === 'true',
+            isSaved: raw[index].isSaved === true || raw[index].isSaved === 'true',
+            answerCount: Number(raw[index].answerCount),
+            hasAcceptedAnswer: raw[index].hasAcceptedAnswer === true || raw[index].hasAcceptedAnswer === 'true',
+
+            hashtags: hashtagsByPost.get(post.id) ?? [],
+    }));
+
+    const total = await this.postRepository.count({
+        where: { isDeleted: false, type: PostType.QUESTION }
+    });
+
+    return {
+        data: { 
+            questions: transformedQuestions
+        },
+        pagination: { 
+            page, 
+            limit, 
+            total, 
+            totalPages: Math.ceil(total / limit)
+        }
+    }
+
+    }
 
     async submitAnswer(questionId: string, user: UserEntity, dto: CreateAnswerDto) {
 

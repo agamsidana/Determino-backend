@@ -16,6 +16,7 @@ import { PostCommentService } from './post-comment.service';
 import { PostSaveService } from './post-save.service';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { QuestionService } from './question.service';
+import { CreateQuestionDto } from './dto/create-question.dto';
 
 @Controller('post')
 @ApiBearerAuth()
@@ -29,6 +30,11 @@ export class PostController {
         return await this.postService.createPost(user, dto)
     }
 
+    @Post('question')
+    async createQuestion(@CurrentUser() user:UserEntity,@Body() dto:CreateQuestionDto){
+        return await this.questionService.createQuestion(user,dto);
+    }
+
     @Post("attachments/upload-url")
     async getUploadUrl(@CurrentUser() user: UserEntity, @Body() dto: CreateAttachmentUploadUrlDto) {
         return await this.postAttachmentService.createUploadUrl(user.id, dto);
@@ -37,6 +43,11 @@ export class PostController {
     @Get()
     async getPosts(@Query() query: PaginationQueryDto, @CurrentUser() user: UserEntity) {
         return await this.postService.getPosts(query, user.id);
+    }
+
+    @Get('question')
+    async getQuestions(@Query() query:PaginationQueryDto,@CurrentUser() user:UserEntity){
+        return await this.questionService.getQuestions(query,user.id);
     }
 
     @Get('hashtags/suggest')

@@ -492,7 +492,7 @@ export class PostService {
     }
 
 
-    private async normalizeHashTags(manager: EntityManager, hashtags?: string[]): Promise<HashTagEntity[]> {
+    async normalizeHashTags(manager: EntityManager, hashtags?: string[]): Promise<HashTagEntity[]> {
 
         if (!hashtags?.length) {
             return [];
