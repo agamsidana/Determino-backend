@@ -18,7 +18,7 @@ export class PostEntity {
     @Column()
     content!: string;
 
-    @Column({nullable:true})
+    @Column({nullable:true}) // must remove nullable after testing
     title!:string;
 
     @Column({ type: 'enum', enum: PostType })

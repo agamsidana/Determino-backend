@@ -38,7 +38,7 @@ export class PostService {
             }
         })
 
-        const { content, type, hashtags, attachments, poll } = dto;
+        const { content,title, type, hashtags, attachments, poll } = dto;
 
         return this.dataSource.transaction(async (manager) => {
 
@@ -65,6 +65,7 @@ export class PostService {
 
             const post = manager.create(PostEntity, {
                 content,
+                title,
                 type,
                 hashtags: normalizeHashtags,
                 user: {
@@ -141,6 +142,7 @@ export class PostService {
             return {
                 data: {
                     id: savedPost.id,
+                    title:savedPost.title,
                     content: savedPost.content,
                     type: savedPost.type,
                     createdAt: savedPost.createdAt,
@@ -393,6 +395,7 @@ export class PostService {
 
             return {
                 id: post.id,
+                title:post.title,
                 content: post.content,
                 type: post.type,
                 createdAt: post.createdAt,
