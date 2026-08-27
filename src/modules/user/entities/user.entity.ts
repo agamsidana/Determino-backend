@@ -1,3 +1,5 @@
+import { GroupMemberEntity } from "src/modules/group/entities/group-member.entity";
+import { GroupEntity } from "src/modules/group/entities/group.entity";
 import { AnswerVoteEntity } from "src/modules/post/entities/answer-vote.entity";
 import { PostCommentLikeEntity } from "src/modules/post/entities/post-comment-like.entity";
 import { PostCommentEntity } from "src/modules/post/entities/post-comment.entity";
@@ -61,6 +63,12 @@ export class UserEntity {
     answers!:QuestionAnswerEntity[];
 
     @OneToMany(()=>AnswerVoteEntity,(answerVote)=>answerVote.user)
-    answerVotes!:AnswerVoteEntity[]
+    answerVotes!:AnswerVoteEntity[];
+
+    @OneToMany(()=>GroupEntity,(group)=>group.createdBy)
+    createdGroups!:GroupEntity[];
+
+    @OneToMany(()=>GroupMemberEntity,(groupMember)=>groupMember.user)
+    groupMemberships!:GroupMemberEntity[];
 
 }
