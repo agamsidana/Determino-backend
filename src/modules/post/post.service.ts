@@ -204,6 +204,9 @@ export class PostService {
             .where('post.isDeleted = :isDeleted', {
                 isDeleted: false,
             })
+            .andWhere('post.type = :type',{
+                type:PostType.POST
+            })
 
             .addSelect(
                 'COUNT(DISTINCT reaction.id)',
