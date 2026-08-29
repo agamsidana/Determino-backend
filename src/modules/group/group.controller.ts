@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { GroupService } from './group.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,6 +22,22 @@ export class GroupController {
     @Get()
     async getGroups(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
         return await this.groupService.getGroups(user.id,query);
+    }
+
+    @Post(':groupId/join')
+    async joinGroup(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
+        return await this.groupService.joinGroup(user.id,groupId)
+    }
+
+    @Delete(':groupId/join')
+    async leaveGroup(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
+        return await this.groupService.leaveGroup(user.id,groupId);
+    }
+
+    @Post(':groupId/members/:targetUserId/promote')
+    async promoteMember(@Param('groupId') groupId:string,@Param('targetUserId') targetUserId:string,@CurrentUser() user:UserEntity){
+        return await this.groupService.promoteMember(groupId,targetUserId,user.id);
+
     }
 
 }

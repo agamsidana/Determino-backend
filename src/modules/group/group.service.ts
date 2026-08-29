@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { GroupEntity } from './entities/group.entity';
 import { Repository } from 'typeorm';
 import { GroupMemberEntity } from './entities/group-member.entity';
-import { DataSource } from 'typeorm/browser';
+import { DataSource } from 'typeorm';
 import { UserEntity } from '../user/entities/user.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupRole } from './enums/group-role.enum';
@@ -12,41 +12,41 @@ import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 @Injectable()
 export class GroupService {
 
-    constructor(@InjectRepository(GroupEntity) private readonly groupRepository:Repository<GroupEntity>,@InjectRepository(GroupMemberEntity) private readonly groupMemberRepository:Repository<GroupMemberEntity>,private readonly dataSource:DataSource){}
+    constructor(@InjectRepository(GroupEntity) private readonly groupRepository: Repository<GroupEntity>, @InjectRepository(GroupMemberEntity) private readonly groupMemberRepository: Repository<GroupMemberEntity>, private readonly dataSource: DataSource) { }
 
-    async createGroup(user:UserEntity,dto:CreateGroupDto){
+    async createGroup(user: UserEntity, dto: CreateGroupDto) {
 
-        const {name,description} = dto;
+        const { name, description } = dto;
 
-        return this.dataSource.transaction(async (manager)=>{
+        return this.dataSource.transaction(async (manager) => {
 
-            const group = manager.create(GroupEntity,{
+            const group = manager.create(GroupEntity, {
                 name,
                 description,
-                createdBy:{
-                    id:user.id
+                createdBy: {
+                    id: user.id
                 }
             });
 
             const savedGroup = await manager.save(group);
 
-            const membership = manager.create(GroupMemberEntity,{
-                role:GroupRole.ADMIN,
-                group:{id:savedGroup.id},
-                user:{id:user.id}
+            const membership = manager.create(GroupMemberEntity, {
+                role: GroupRole.ADMIN,
+                group: { id: savedGroup.id },
+                user: { id: user.id }
             });
 
             await manager.save(membership);
 
             return {
-                data:{
-                    id:savedGroup.id,
-                    name:savedGroup.name,
-                    description:savedGroup.description ?? null,
-                    createdAt:savedGroup.createdAt,
+                data: {
+                    id: savedGroup.id,
+                    name: savedGroup.name,
+                    description: savedGroup.description ?? null,
+                    createdAt: savedGroup.createdAt,
                     memberCount: 1,
-                    isJoined:true,
-                    myRole:GroupRole.ADMIN
+                    isJoined: true,
+                    myRole: GroupRole.ADMIN
 
                 }
             }
@@ -55,22 +55,22 @@ export class GroupService {
 
     }
 
-    async getGroups(userId:string,query:PaginationQueryDto){
+    async getGroups(userId: string, query: PaginationQueryDto) {
 
-        const {page,limit} = query;
-        const skip = (page-1) * limit;
+        const { page, limit } = query;
+        const skip = (page - 1) * limit;
 
         const queryBuilder = this.groupRepository
-                              .createQueryBuilder('group')
+            .createQueryBuilder('group')
 
-                              .leftJoin('group.members','member')
+            .leftJoin('group.members', 'member')
 
-                              .where('group.isDeleted = :isDeleted',{isDeleted:false})
+            .where('group.isDeleted = :isDeleted', { isDeleted: false })
 
-                              .addSelect('COUNT(DISTINCT member.id)','memberCount')
+            .addSelect('COUNT(DISTINCT member.id)', 'memberCount')
 
-                              .addSelect(
-                                `
+            .addSelect(
+                `
                                 EXISTS (
 
                                 SELECT 1 FROM group_members gm
@@ -78,30 +78,30 @@ export class GroupService {
                                 AND gm."userId" = :userId
 
                                 )`,
-                                'isJoined'
-                              )
+                'isJoined'
+            )
 
-                              .addSelect(
-                                `
+            .addSelect(
+                `
                                 (SELECT gm2.role FROM group_members gm2
                                    WHERE gm2."groupId" = "group".id
                                    AND gm2."userId" = :userId
                                 )
                                 `,
-                                'myRole'
-                              )
+                'myRole'
+            )
 
-                              .setParameter('userId',userId)
+            .setParameter('userId', userId)
 
-                              .orderBy('group.createdAt','DESC')
+            .orderBy('group.createdAt', 'DESC')
 
-                              .groupBy('group.id')
+            .groupBy('group.id')
 
-                              .skip(skip)
-                              .take(limit)
-        
+            .skip(skip)
+            .take(limit)
 
-        const {entities,raw} = await queryBuilder.getRawAndEntities();
+
+        const { entities, raw } = await queryBuilder.getRawAndEntities();
 
 
         const transformedGroups = entities.map((group, idx) => ({
@@ -117,12 +117,171 @@ export class GroupService {
         const total = await this.groupRepository.count({ where: { isDeleted: false } });
 
         return {
-            data:{
-                groups:transformedGroups
+            data: {
+                groups: transformedGroups
             },
             pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
         }
-                              
+
+
+    }
+
+    async joinGroup(userId: string, groupId: string) {
+
+        const group = await this.groupRepository.findOne({
+            where: {
+                id: groupId,
+                isDeleted: false
+            }
+        });
+
+        if (!group) {
+            throw new NotFoundException('group not found');
+        }
+
+        const membership = this.groupMemberRepository.create({
+            group: {
+                id: groupId
+            },
+            user: {
+                id: userId
+            },
+            role: GroupRole.MEMBER
+        });
+
+        try {
+
+            await this.groupMemberRepository.save(membership);
+
+
+        }
+        catch (err: any) {
+
+            if (err.code === '23505') {
+                throw new ConflictException('You are already a member of this group');
+            }
+            throw err;
+
+        }
+
+        const memberCount = await this.groupMemberRepository.count({
+            where: {
+                group: {
+                    id: groupId
+                }
+            }
+        });
+
+        return {
+            data: {
+                groupId,
+                isJoined: true,
+                myRole: GroupRole.MEMBER,
+                memberCount
+            }
+        }
+
+    }
+
+    async leaveGroup(userId: string, groupId: string) {
+
+        const membership = await this.groupMemberRepository.findOne({
+            where: {
+                group: {
+                    id: groupId
+                },
+                user: {
+                    id: userId
+                }
+            }
+        });
+
+        if (!membership) {
+            throw new NotFoundException('you are not a member of this group');
+        }
+
+        if (membership.role === GroupRole.ADMIN) {
+
+            const adminCount = await this.groupMemberRepository.count({
+                where: {
+                    group: {
+                        id: groupId
+                    },
+                    role: GroupRole.ADMIN
+                }
+            });
+
+            if (adminCount === 1) {
+                throw new ConflictException('You are the only admin. Promote another member to admin before leaving');
+            }
+
+        }
+
+        await this.groupMemberRepository.delete({
+            group: {
+                id: groupId
+            },
+            user: {
+                id: userId
+            }
+        });
+
+        return {
+            data: {
+                groupId,
+                isJoined: false
+            }
+        }
+
+    }
+
+    async promoteMember(groupId: string, targetUserId: string, userId: string) {
+
+        const requesterMembership = await this.groupMemberRepository.findOne({
+            where: {
+                group: {
+                    id: groupId
+                },
+                user: {
+                    id: userId
+                },
+                role: GroupRole.ADMIN
+            }
+        });
+
+        if (!requesterMembership) {
+            throw new ForbiddenException('only admins can promote members');
+        }
+
+        const targetMembership = await this.groupMemberRepository.findOne({
+            where: {
+                group: {
+                    id: groupId
+                },
+                user: {
+                    id: targetUserId
+                }
+            }
+        });
+
+        if (!targetMembership) {
+            throw new NotFoundException('That user is not a member of this group');
+        }
+
+        if (targetMembership.role === GroupRole.ADMIN) {
+            throw new ConflictException('This user is already an admin');
+        }
+
+        targetMembership.role = GroupRole.ADMIN;
+        await this.groupMemberRepository.save(targetMembership);
+
+        return {
+            data:{
+                userId:targetUserId,
+                groupId,
+                role:GroupRole.ADMIN
+            }
+        }
 
     }
 
