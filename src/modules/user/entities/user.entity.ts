@@ -29,6 +29,9 @@ export class UserEntity {
     })
     password!: string;
 
+    @Column({nullable:true})
+    lastSeenAt!:Date;
+
     @CreateDateColumn()
     createdAt!: Date;
 
