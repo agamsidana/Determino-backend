@@ -8,6 +8,9 @@ import { UserEntity } from '../user/entities/user.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { GroupRole } from './enums/group-role.enum';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
+import { ConversationEntity } from '../chat/entities/conversation.entity';
+import { ConversationType } from '../chat/enums/conversation-type.enum';
+import { ConversationParticipantEntity } from '../chat/entities/conversation-participant.entity';
 
 @Injectable()
 export class GroupService {
@@ -38,6 +41,26 @@ export class GroupService {
 
             await manager.save(membership);
 
+            const conversation = manager.create(ConversationEntity, {
+                type: ConversationType.GROUP,
+                group: {
+                    id: savedGroup.id
+                }
+            });
+
+            const savedConversation = await manager.save(conversation);
+
+            const participant = manager.create(ConversationParticipantEntity, {
+                conversation: {
+                    id: savedConversation.id
+                },
+                user: {
+                    id: user.id
+                }
+            });
+
+            await manager.save(participant);
+
             return {
                 data: {
                     id: savedGroup.id,
@@ -46,7 +69,8 @@ export class GroupService {
                     createdAt: savedGroup.createdAt,
                     memberCount: 1,
                     isJoined: true,
-                    myRole: GroupRole.ADMIN
+                    myRole: GroupRole.ADMIN,
+                    conversationId: savedConversation.id
 
                 }
             }
@@ -132,6 +156,9 @@ export class GroupService {
             where: {
                 id: groupId,
                 isDeleted: false
+            },
+            relations: {
+                conversation: true
             }
         });
 
@@ -139,48 +166,58 @@ export class GroupService {
             throw new NotFoundException('group not found');
         }
 
-        const membership = this.groupMemberRepository.create({
-            group: {
-                id: groupId
-            },
-            user: {
-                id: userId
-            },
-            role: GroupRole.MEMBER
-        });
+        return this.dataSource.transaction(async (manager) => {
 
-        try {
-
-            await this.groupMemberRepository.save(membership);
-
-
-        }
-        catch (err: any) {
-
-            if (err.code === '23505') {
-                throw new ConflictException('You are already a member of this group');
-            }
-            throw err;
-
-        }
-
-        const memberCount = await this.groupMemberRepository.count({
-            where: {
+            const membership = manager.create(GroupMemberEntity, {
                 group: {
                     id: groupId
+                },
+                user: {
+                    id: userId
+                },
+                role: GroupRole.MEMBER
+            });
+
+            try {
+
+                await manager.save(membership);
+
+            }
+            catch (err: any) {
+
+                if (err.code === '23505') {
+                    throw new ConflictException('You are already a member of this group');
                 }
-            }
-        });
+                throw err;
 
-        return {
-            data: {
-                groupId,
-                isJoined: true,
-                myRole: GroupRole.MEMBER,
-                memberCount
             }
-        }
 
+            if (group.conversation) {
+
+                const participant = manager.create(ConversationParticipantEntity, {
+                    conversation: { id: group.conversation.id },
+                    user: { id: userId }
+                });
+                await manager.save(participant);
+
+            }
+
+            const memberCount = await manager.count(GroupMemberEntity, {
+                where: { group: { id: groupId } }
+            });
+
+            return {
+
+                data: {
+                    groupId,
+                    isJoined: true,
+                    myRole: GroupRole.MEMBER,
+                    memberCount
+                }
+
+            }
+
+        })
     }
 
     async leaveGroup(userId: string, groupId: string) {
@@ -217,21 +254,45 @@ export class GroupService {
 
         }
 
-        await this.groupMemberRepository.delete({
-            group: {
-                id: groupId
+        const group = await this.groupRepository.findOne({
+            where:{
+                id:groupId
             },
-            user: {
-                id: userId
+            relations:{
+                conversation:true
             }
         });
 
-        return {
-            data: {
-                groupId,
-                isJoined: false
+        return await this.dataSource.transaction(async (manager)=>{
+
+            await manager.delete(GroupMemberEntity,{
+                group:{
+                    id:groupId
+                },
+                user:{
+                    id:userId
+                }
+            });
+
+            if(group?.conversation){
+                await manager.delete(ConversationParticipantEntity,{
+                    conversation:{
+                        id:group.conversation.id
+                    },
+                    user:{
+                        id:userId
+                    }
+                })
             }
-        }
+
+            return {
+                data: {
+                    groupId,
+                    isJoined: false
+                }
+            }
+
+        })
 
     }
 
@@ -276,10 +337,10 @@ export class GroupService {
         await this.groupMemberRepository.save(targetMembership);
 
         return {
-            data:{
-                userId:targetUserId,
+            data: {
+                userId: targetUserId,
                 groupId,
-                role:GroupRole.ADMIN
+                role: GroupRole.ADMIN
             }
         }
 
