@@ -15,6 +15,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { PostModule } from './modules/post/post.module';
 import { SupabaseModule } from './shared/supabase/supabase.module';
 import { GroupModule } from './modules/group/group.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -45,7 +46,8 @@ import { GroupModule } from './modules/group/group.module';
     StudySessionModule,
     AnalyticsModule,
     PostModule,
-    GroupModule
+    GroupModule,
+    ChatModule
 
   ],
   controllers: [],

@@ -1,3 +1,5 @@
+import { ConversationParticipantEntity } from "src/modules/chat/entities/conversation-participant.entity";
+import { MessageEntity } from "src/modules/chat/entities/message.entity";
 import { GroupMemberEntity } from "src/modules/group/entities/group-member.entity";
 import { GroupEntity } from "src/modules/group/entities/group.entity";
 import { AnswerVoteEntity } from "src/modules/post/entities/answer-vote.entity";
@@ -73,5 +75,11 @@ export class UserEntity {
 
     @OneToMany(()=>GroupMemberEntity,(groupMember)=>groupMember.user)
     groupMemberships!:GroupMemberEntity[];
+
+    @OneToMany(()=>ConversationParticipantEntity,(conversationParticipant)=>conversationParticipant.user)
+    conversationParticipations!:ConversationParticipantEntity[];
+
+    @OneToMany(()=>MessageEntity,(message)=>message.sender)
+    messagesSent!:MessageEntity[]
 
 }
