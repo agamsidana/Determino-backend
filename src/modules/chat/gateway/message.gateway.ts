@@ -67,6 +67,29 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
     }
 
+    @SubscribeMessage('typing')
+    handleTyping(@ConnectedSocket() client:Socket,@MessageBody() data:{conversationId:string}){
+
+        const user = client.data.user;
+
+        client.to(`conversation:${data.conversationId}`).emit('userTyping',{
+            userId:user.id,
+            name:`${user.profile.firstName} ${user.profile.lastName}`
+        })
+
+    }
+
+    @SubscribeMessage('stopTyping')
+    handleStopTyping(@ConnectedSocket() client:Socket,@MessageBody() data:{conversationId:string}){
+
+        const user = client.data.user;
+
+        client.to(`conversation:${data.conversationId}`).emit('userStoppedTyping',{
+            userId:user.id
+        })
+
+    }
+
     async handleConnection(client: Socket) {
         try {
             const token = client.handshake?.auth.token;
