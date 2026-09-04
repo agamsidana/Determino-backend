@@ -117,33 +117,51 @@ export class ChatService {
 
     }
 
-    // async deleteMessage(coversationId:string,messageId:string,userId:string){
+    async deleteMessage(conversationId:string,messageId:string,userId:string){
 
-    //       const participant = await this.conversationParticipantRepository.findOne({
-    //         where: {
-    //             conversation: {
-    //                 id: coversationId
-    //             },
-    //             user: {
-    //                 id: userId
-    //             }
-    //         }
-    //     });
+          const participant = await this.conversationParticipantRepository.findOne({
+            where: {
+                conversation: {
+                    id: conversationId
+                },
+                user: {
+                    id: userId
+                }
+            }
+        });
 
-    //     if (!participant) {
-    //         throw new ForbiddenException('You are not a participant in this conversation');
-    //     }
+        if (!participant) {
+            throw new ForbiddenException('You are not a participant in this conversation');
+        }
 
-    //     await this.messageRepository.update({
-    //         id:messageId
-    //     },{
-    //         isDeleted:true
-    //     });
+        const message = await this.messageRepository.findOne({
+            where:{
+                id:messageId,
+                conversation:{
+                    id:conversationId
+                },
+                sender:{
+                    id:userId
+                },
+                isDeleted:false
+            },
+        });
 
-    //     return {
-    //         isDeleted:true
-    //     }
+        if(!message){
+            throw new NotFoundException('Message not found');
+        }
 
-    // }
+        message.isDeleted = true;
+
+        await this.messageRepository.save(message);
+
+        return {
+            data:{
+                id:message.id,
+                isDeleted:true
+            }
+        }
+
+    }
 
 }

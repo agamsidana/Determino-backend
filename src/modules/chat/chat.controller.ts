@@ -23,9 +23,9 @@ export class ChatController {
         return await this.chatService.getMessages(conversationId,user,before,limit);
     }
 
-    // @Delete(':coversationId/:messageId/message')
-    // async deleteMessage(@Param('coversationId') conversationId:string,@Param('messageId') messageId:string,@CurrentUser() user:UserEntity){
-    //     return await this.chatService.deleteMessage(conversationId,messageId,user.id)
-    // }
+    @Delete(':conversationId/:messageId/message')
+    async deleteMessage(@Param('conversationId') conversationId:string,@Param('messageId') messageId:string,@CurrentUser() user:UserEntity){
+        return await this.chatService.deleteMessage(conversationId,messageId,user.id)
+    }
 
 }

@@ -79,6 +79,28 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
     }
 
+    @SubscribeMessage('deleteMessage')
+    async handleMessageDeletion(@ConnectedSocket() client:Socket,@MessageBody() data:{
+        conversationId:string,
+        messageId:string
+    } ){
+
+        const user = client.data.user;
+
+        try{
+
+            const result = await this.chatService.deleteMessage(data.conversationId,data.messageId,user.id);
+            this.server.to(`conversation:${data.conversationId}`).emit('messageDeleted',result.data)
+
+        }
+        catch(err:any){
+            client.emit('deleteMessageError',{
+                message:err.message
+            });
+        }
+
+    }
+
     @SubscribeMessage('stopTyping')
     handleStopTyping(@ConnectedSocket() client:Socket,@MessageBody() data:{conversationId:string}){
 
