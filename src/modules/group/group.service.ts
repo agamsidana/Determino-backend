@@ -20,13 +20,14 @@ export class GroupService {
 
     async createGroup(user: UserEntity, dto: CreateGroupDto) {
 
-        const { name, description } = dto;
+        const { name, description,color } = dto;
 
         return this.dataSource.transaction(async (manager) => {
 
             const group = manager.create(GroupEntity, {
                 name,
                 description,
+                color,
                 createdBy: {
                     id: user.id
                 }
@@ -67,6 +68,7 @@ export class GroupService {
                     id: savedGroup.id,
                     name: savedGroup.name,
                     description: savedGroup.description ?? null,
+                    color:savedGroup.color,
                     createdAt: savedGroup.createdAt,
                     memberCount: 1,
                     isJoined: true,
@@ -133,6 +135,7 @@ export class GroupService {
             id: group.id,
             name: group.name,
             description: group.description ?? null,
+            color:group.color,
             createdAt: group.createdAt,
             memberCount: Number(raw[idx].memberCount),
             isJoined: raw[idx].isJoined === true || raw[idx].isJoined === 'true',
