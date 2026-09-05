@@ -11,6 +11,7 @@ import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { ConversationEntity } from '../chat/entities/conversation.entity';
 import { ConversationType } from '../chat/enums/conversation-type.enum';
 import { ConversationParticipantEntity } from '../chat/entities/conversation-participant.entity';
+import { GROUP_MESSAGES } from 'src/shared/constants/messages/group.messages';
 
 @Injectable()
 export class GroupService {
@@ -163,7 +164,7 @@ export class GroupService {
         });
 
         if (!group) {
-            throw new NotFoundException('group not found');
+            throw new NotFoundException(GROUP_MESSAGES.GROUP_NOT_FOUND);
         }
 
         return this.dataSource.transaction(async (manager) => {
@@ -186,7 +187,7 @@ export class GroupService {
             catch (err: any) {
 
                 if (err.code === '23505') {
-                    throw new ConflictException('You are already a member of this group');
+                    throw new ConflictException(GROUP_MESSAGES.ALREADY_MEMBER_OF_GROUP);
                 }
                 throw err;
 
@@ -234,7 +235,7 @@ export class GroupService {
         });
 
         if (!membership) {
-            throw new NotFoundException('you are not a member of this group');
+            throw new NotFoundException(GROUP_MESSAGES.NOT_MEMBER_OF_GROUP);
         }
 
         if (membership.role === GroupRole.ADMIN) {
@@ -249,7 +250,7 @@ export class GroupService {
             });
 
             if (adminCount === 1) {
-                throw new ConflictException('You are the only admin. Promote another member to admin before leaving');
+                throw new ConflictException(GROUP_MESSAGES.PROMOTE_ANOTHER_MEMBER_BEFORE_LEAVING);
             }
 
         }
@@ -311,7 +312,7 @@ export class GroupService {
         });
 
         if (!requesterMembership) {
-            throw new ForbiddenException('only admins can promote members');
+            throw new ForbiddenException(GROUP_MESSAGES.ONLY_ADMIN_CAN_PROMOTE);
         }
 
         const targetMembership = await this.groupMemberRepository.findOne({
