@@ -1,3 +1,7 @@
+import { ConversationParticipantEntity } from "src/modules/chat/entities/conversation-participant.entity";
+import { MessageEntity } from "src/modules/chat/entities/message.entity";
+import { GroupMemberEntity } from "src/modules/group/entities/group-member.entity";
+import { GroupEntity } from "src/modules/group/entities/group.entity";
 import { AnswerVoteEntity } from "src/modules/post/entities/answer-vote.entity";
 import { PostCommentLikeEntity } from "src/modules/post/entities/post-comment-like.entity";
 import { PostCommentEntity } from "src/modules/post/entities/post-comment.entity";
@@ -26,6 +30,9 @@ export class UserEntity {
         select: false,
     })
     password!: string;
+
+    @Column({nullable:true})
+    lastSeenAt!:Date;
 
     @CreateDateColumn()
     createdAt!: Date;
@@ -61,6 +68,18 @@ export class UserEntity {
     answers!:QuestionAnswerEntity[];
 
     @OneToMany(()=>AnswerVoteEntity,(answerVote)=>answerVote.user)
-    answerVotes!:AnswerVoteEntity[]
+    answerVotes!:AnswerVoteEntity[];
+
+    @OneToMany(()=>GroupEntity,(group)=>group.createdBy)
+    createdGroups!:GroupEntity[];
+
+    @OneToMany(()=>GroupMemberEntity,(groupMember)=>groupMember.user)
+    groupMemberships!:GroupMemberEntity[];
+
+    @OneToMany(()=>ConversationParticipantEntity,(conversationParticipant)=>conversationParticipant.user)
+    conversationParticipations!:ConversationParticipantEntity[];
+
+    @OneToMany(()=>MessageEntity,(message)=>message.sender)
+    messagesSent!:MessageEntity[]
 
 }
