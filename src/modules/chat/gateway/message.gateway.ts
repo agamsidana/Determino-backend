@@ -7,6 +7,7 @@ import { ConversationParticipantEntity } from "../entities/conversation-particip
 import { Repository } from "typeorm";
 import { ChatService } from "../chat.service";
 import { UserEntity } from "src/modules/user/entities/user.entity";
+import { configuration } from "src/config/configuration";
 
 
 @WebSocketGateway({ cors: true })
@@ -24,7 +25,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     @SubscribeMessage('joinConversation')
     async handleJoinConversation(@ConnectedSocket() client: Socket, @MessageBody() conversationId: string) {
 
-        const userId = client.data.user?.sub;
+        const userId = client.data.user?.id;
 
         const participant = await this.conversationParticipantRepository.findOne({
             where: {
@@ -47,10 +48,10 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
     }
 
     @SubscribeMessage('sendMessage')
-    async handleSendMessage(@ConnectedSocket() client: Socket, @MessageBody() data: { conversationId: string, content: string }) {
+    async handleSendMessage(@ConnectedSocket() client: Socket, @MessageBody() data: { conversationId: string, content: string, messageId:string }) {
 
         const user = client.data?.user;
-        const { conversationId, content } = data;
+        const { conversationId, content,messageId } = data;
 
         try {
             const message = await this.chatService.sendMessage(
@@ -59,10 +60,15 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
                 { content }
             );
 
-            this.server.to(`conversation:${conversationId}`).emit('newMessage', message.data);
+            client.to(`conversation:${conversationId}`).emit('newMessage', message.data);
+            
+            return{
+                success:true,
+                messageId:message.data.id
+            }
         }
         catch (err: any) {
-            client.emit('sendMessageError', { message: err.message });
+            client.emit('sendMessageError', { success:false,messageId });
         }
 
     }
@@ -95,7 +101,8 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
         }
         catch(err:any){
             client.emit('deleteMessageError',{
-                message:err.message
+                message:err.message,
+                messageId:data.messageId
             });
         }
 
@@ -120,7 +127,9 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
                 return client.disconnect();
             }
 
-            const payload = await this.jwtService.verifyAsync(token);
+            const payload = await this.jwtService.verifyAsync(token,{
+                secret:configuration().JWT_SECRET
+            });
 
             const user = await this.userRepository.findOne({
                 where: {
