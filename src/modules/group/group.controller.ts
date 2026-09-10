@@ -24,6 +24,12 @@ export class GroupController {
         return await this.groupService.getGroups(user.id,query);
     }
 
+    @Get(':groupId')
+    async getGroupById(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
+        return await this.groupService.getGroupById(user.id,groupId);
+
+    }
+
     @Post(':groupId/join')
     async joinGroup(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
         return await this.groupService.joinGroup(user.id,groupId)

@@ -20,7 +20,7 @@ export class GroupService {
 
     async createGroup(user: UserEntity, dto: CreateGroupDto) {
 
-        const { name, description,color } = dto;
+        const { name, description, color } = dto;
 
         return this.dataSource.transaction(async (manager) => {
 
@@ -68,7 +68,7 @@ export class GroupService {
                     id: savedGroup.id,
                     name: savedGroup.name,
                     description: savedGroup.description ?? null,
-                    color:savedGroup.color,
+                    color: savedGroup.color,
                     createdAt: savedGroup.createdAt,
                     memberCount: 1,
                     isJoined: true,
@@ -118,6 +118,11 @@ export class GroupService {
                 'myRole'
             )
 
+            .addSelect(
+                `(SELECT c.id FROM conversations c WHERE c."groupId" = "group".id)`,
+                'conversationId'
+            )
+
             .setParameter('userId', userId)
 
             .orderBy('group.createdAt', 'DESC')
@@ -135,11 +140,12 @@ export class GroupService {
             id: group.id,
             name: group.name,
             description: group.description ?? null,
-            color:group.color,
+            color: group.color,
             createdAt: group.createdAt,
             memberCount: Number(raw[idx].memberCount),
             isJoined: raw[idx].isJoined === true || raw[idx].isJoined === 'true',
             myRole: raw[idx].myRole ?? null,
+            conversationId: raw[idx].conversationId ?? null,
         }));
 
         const total = await this.groupRepository.count({ where: { isDeleted: false } });
@@ -151,6 +157,73 @@ export class GroupService {
             pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
         }
 
+
+    }
+
+    async getGroupById(userId: string, groupId: string) {
+
+        const queryBuilder = this.groupRepository
+            .createQueryBuilder('group')
+
+            .leftJoin('group.members', 'member')
+
+            .where('group.id = :groupId', { groupId })
+            .andWhere('group.isDeleted = :isDeleted', { isDeleted: false })
+
+            .addSelect('COUNT(DISTINCT member.id)', 'memberCount')
+
+            .addSelect(
+                `
+                                EXISTS (
+
+                                SELECT 1 FROM group_members gm
+                                WHERE gm."groupId" = "group".id
+                                AND gm."userId" = :userId
+
+                                )`,
+                'isJoined'
+            )
+
+            .addSelect(
+                `
+                                (SELECT gm2.role FROM group_members gm2
+                                   WHERE gm2."groupId" = "group".id
+                                   AND gm2."userId" = :userId
+                                )
+                                `,
+                'myRole'
+            )
+
+            .addSelect(
+                `(SELECT c.id FROM conversations c WHERE c."groupId" = "group".id)`,
+                'conversationId'
+            )
+
+            .setParameter('userId', userId)
+            .groupBy('group.id')
+
+        const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+        if (!entities.length) {
+            throw new NotFoundException(GROUP_MESSAGES.GROUP_NOT_FOUND);
+        }
+
+        const group = entities[0];
+        const data = raw[0];
+
+        return {
+            data: {
+                id: group.id,
+                name: group.name,
+                description: group.description ?? null,
+                color: group.color,
+                createdAt: group.createdAt,
+                memberCount: Number(data.memberCount),
+                isJoined: data.isJoined === true || data.isJoined === 'true',
+                myRole: data.myRole ?? null,
+                conversationId: data.conversationId ?? null,
+            },
+        };
 
     }
 
@@ -259,32 +332,32 @@ export class GroupService {
         }
 
         const group = await this.groupRepository.findOne({
-            where:{
-                id:groupId
+            where: {
+                id: groupId
             },
-            relations:{
-                conversation:true
+            relations: {
+                conversation: true
             }
         });
 
-        return await this.dataSource.transaction(async (manager)=>{
+        return await this.dataSource.transaction(async (manager) => {
 
-            await manager.delete(GroupMemberEntity,{
-                group:{
-                    id:groupId
+            await manager.delete(GroupMemberEntity, {
+                group: {
+                    id: groupId
                 },
-                user:{
-                    id:userId
+                user: {
+                    id: userId
                 }
             });
 
-            if(group?.conversation){
-                await manager.delete(ConversationParticipantEntity,{
-                    conversation:{
-                        id:group.conversation.id
+            if (group?.conversation) {
+                await manager.delete(ConversationParticipantEntity, {
+                    conversation: {
+                        id: group.conversation.id
                     },
-                    user:{
-                        id:userId
+                    user: {
+                        id: userId
                     }
                 })
             }
