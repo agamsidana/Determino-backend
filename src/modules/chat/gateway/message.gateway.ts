@@ -119,6 +119,12 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
     }
 
+    emitNewMessage(conversationId: string, message: any) {
+        this.server
+            .to(`conversation:${conversationId}`)
+            .emit('newMessage', message);
+    }
+
     async handleConnection(client: Socket) {
         try {
             const token = client.handshake?.auth.token;

@@ -12,6 +12,9 @@ import { ConversationEntity } from '../chat/entities/conversation.entity';
 import { ConversationType } from '../chat/enums/conversation-type.enum';
 import { ConversationParticipantEntity } from '../chat/entities/conversation-participant.entity';
 import { GROUP_MESSAGES } from 'src/shared/constants/messages/group.messages';
+import { MessageEntity } from '../chat/entities/message.entity';
+import { MessageType } from '../chat/enums/message-type.enum';
+import { SystemEventType } from '../chat/enums/systemEvent-type.enum';
 
 @Injectable()
 export class GroupService {
@@ -227,7 +230,7 @@ export class GroupService {
 
     }
 
-    async joinGroup(userId: string, groupId: string) {
+    async joinGroup(user: UserEntity, groupId: string) {
 
         const group = await this.groupRepository.findOne({
             where: {
@@ -250,7 +253,7 @@ export class GroupService {
                     id: groupId
                 },
                 user: {
-                    id: userId
+                    id: user.id
                 },
                 role: GroupRole.MEMBER
             });
@@ -269,13 +272,28 @@ export class GroupService {
 
             }
 
+            let systemMessage: null | MessageEntity = null;
+
             if (group.conversation) {
 
                 const participant = manager.create(ConversationParticipantEntity, {
                     conversation: { id: group.conversation.id },
-                    user: { id: userId }
+                    user: { id: user.id }
                 });
                 await manager.save(participant);
+
+                const sysMsg = manager.create(MessageEntity, {
+                    type: MessageType.SYSTEM,
+                    systemEventType: SystemEventType.USER_JOINED,
+                    conversation: {
+                        id: group.conversation.id
+                    },
+                    sender: {
+                        id: user.id
+                    }
+                });
+
+                systemMessage = await manager.save(sysMsg);
 
             }
 
@@ -287,9 +305,20 @@ export class GroupService {
 
                 data: {
                     groupId,
+                    conversationId: group.conversation.id ?? null,
                     isJoined: true,
                     myRole: GroupRole.MEMBER,
-                    memberCount
+                    memberCount,
+                    systemMessage: systemMessage ? {
+                        id: systemMessage.id,
+                        type: MessageType.SYSTEM,
+                        systemEventType: SystemEventType.USER_JOINED,
+                        createdAt: systemMessage.createdAt,
+                        sender: {
+                            id: user.id,
+                            name: `${user.profile.firstName} ${user.profile.lastName}`
+                        }
+                    } : null
                 }
 
             }
@@ -359,7 +388,20 @@ export class GroupService {
                     user: {
                         id: userId
                     }
-                })
+                });
+
+                const sysMsg = manager.create(MessageEntity, {
+                    type: MessageType.SYSTEM,
+                    systemEventType: SystemEventType.USER_LEFT,
+                    conversation: {
+                        id: group.conversation.id
+                    },
+                    sender: {
+                        id: userId
+                    }
+                });
+
+                await manager.save(sysMsg);
             }
 
             return {

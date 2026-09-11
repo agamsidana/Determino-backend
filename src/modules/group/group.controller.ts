@@ -6,13 +6,14 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserEntity } from '../user/entities/user.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
+import { MessageGateway } from '../chat/gateway/message.gateway';
 
 @Controller('group')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class GroupController {
 
-    constructor(private readonly groupService:GroupService){}
+    constructor(private readonly groupService:GroupService,  private readonly messageGateway: MessageGateway,){}
 
     @Post()
     async createGroup(@CurrentUser() user:UserEntity,@Body() dto:CreateGroupDto){
@@ -32,7 +33,9 @@ export class GroupController {
 
     @Post(':groupId/join')
     async joinGroup(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
-        return await this.groupService.joinGroup(user.id,groupId)
+        const result =  await this.groupService.joinGroup(user,groupId);
+        this.messageGateway.emitNewMessage(result.data.conversationId,result.data.systemMessage)
+        return result;
     }
 
     @Delete(':groupId/join')

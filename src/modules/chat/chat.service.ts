@@ -5,6 +5,8 @@ import { MessageEntity } from './entities/message.entity';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ConversationParticipantEntity } from './entities/conversation-participant.entity';
 import { UserEntity } from '../user/entities/user.entity';
+import { SystemEventType } from './enums/systemEvent-type.enum';
+import { MessageType } from './enums/message-type.enum';
 
 @Injectable()
 export class ChatService {
@@ -100,16 +102,7 @@ export class ChatService {
 
         return {
             data: {
-                messages: messages.map((m) => ({
-                    id: m.id,
-                    content: m.isDeleted ? null : m.content,
-                    isDeleted: m.isDeleted,
-                    createdAt: m.createdAt,
-                    sender: {
-                        id: m.sender.id,
-                        name: `${m.sender.profile.firstName} ${m.sender.profile.lastName}`
-                    }
-                })).reverse(),   // flip back to (oldest first) for UI rendering
+                messages: messages.map((m)=> this.transformMessage(m)).reverse(),   // flip back to (oldest first) for UI rendering
                 hasMore: messages.length === limit
             }
         }
@@ -117,9 +110,9 @@ export class ChatService {
 
     }
 
-    async deleteMessage(conversationId:string,messageId:string,userId:string){
+    async deleteMessage(conversationId: string, messageId: string, userId: string) {
 
-          const participant = await this.conversationParticipantRepository.findOne({
+        const participant = await this.conversationParticipantRepository.findOne({
             where: {
                 conversation: {
                     id: conversationId
@@ -135,19 +128,19 @@ export class ChatService {
         }
 
         const message = await this.messageRepository.findOne({
-            where:{
-                id:messageId,
-                conversation:{
-                    id:conversationId
+            where: {
+                id: messageId,
+                conversation: {
+                    id: conversationId
                 },
-                sender:{
-                    id:userId
+                sender: {
+                    id: userId
                 },
-                isDeleted:false
+                isDeleted: false
             },
         });
 
-        if(!message){
+        if (!message) {
             throw new NotFoundException('Message not found');
         }
 
@@ -156,12 +149,68 @@ export class ChatService {
         await this.messageRepository.save(message);
 
         return {
-            data:{
-                id:message.id,
-                isDeleted:true
+            data: {
+                id: message.id,
+                isDeleted: true
             }
         }
 
     }
+
+    async createSystemMessage(conversationId: string, userId: string, eventType: SystemEventType) {
+
+        const message = this.messageRepository.create({
+            type: MessageType.SYSTEM,
+            systemEventType: eventType,
+            conversation: {
+                id: conversationId
+            },
+            sender: {
+                id: userId
+            }
+        });
+
+        const savedMessage = await this.messageRepository.save(message);
+
+        return {
+            id: savedMessage.id,
+            type: MessageType.SYSTEM,
+            systemEventType: savedMessage.systemEventType,
+            createdAt: savedMessage.createdAt,
+            sender: { id: userId },
+        };
+
+    }
+
+    private transformMessage(m: MessageEntity) {
+
+        const senderName = `${m.sender.profile.firstName} ${m.sender.profile.lastName}`;
+
+        if (m.type === MessageType.SYSTEM) {
+            return {
+                id: m.id,
+                type: MessageType.SYSTEM,
+                systemEventType: m.systemEventType,
+                createdAt: m.createdAt,
+                sender: {
+                    id: m.sender.id,
+                    name: senderName
+                }
+            };
+        }
+
+        return {
+            id: m.id,
+            type: MessageType.TEXT,
+            content: m.isDeleted ? null : m.content,
+            isDeleted: m.isDeleted,
+            createdAt: m.createdAt,
+            sender: {
+                id: m.sender.id,
+                name: senderName
+            }
+        };
+
+}
 
 }

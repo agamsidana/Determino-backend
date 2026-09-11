@@ -12,6 +12,7 @@ import { UserEntity } from '../user/entities/user.entity';
 @Module({
     imports:[TypeOrmModule.forFeature([ConversationEntity,ConversationParticipantEntity,MessageEntity,UserEntity])],
     providers: [ChatService,MessageGateway,JwtService],
-    controllers: [ChatController]
+    controllers: [ChatController],
+    exports:[MessageGateway]
 })
 export class ChatModule {}
