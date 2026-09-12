@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { SignUpDto } from './dto/signup.dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -10,6 +10,10 @@ import { CurrentUserResponseDto } from './dto/current-user-response.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { SignupResponseDto } from './dto/signup-response.dto';
 import { Throttle } from '@nestjs/throttler';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -43,6 +47,26 @@ export class AuthController {
     @Get('me')
     async me(@CurrentUser() user: UserEntity): Promise<CurrentUserResponseDto> {
         return await this.authService.getCurrentUser(user);
+    }
+
+    @Post('verify-email')
+    async verifyEmail(@Body() dto:VerifyEmailDto){
+        return await this.authService.verifyEmail(dto);
+    }
+
+    @Post('resend-verification')
+    async resendVerification(@Body() dto:ResendVerificationDto){
+        return await this.authService.resendVerification(dto);
+    }
+
+    @Post('forgot-password')
+    async forgotPassword(@Body() dto:ForgotPasswordDto){
+        return await this.authService.forgotPassword(dto);
+    }
+
+    @Post('reset-password')
+    async resetPassword(@Body() dto:ResetPasswordDto){
+        return await this.authService.resetPassword(dto);
     }
 
 }

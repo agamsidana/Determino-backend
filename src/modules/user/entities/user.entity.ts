@@ -31,8 +31,36 @@ export class UserEntity {
     })
     password!: string;
 
-    @Column({nullable:true})
-    lastSeenAt!:Date;
+    @Column({ nullable: true })
+    lastSeenAt!: Date;
+
+    @Column({ default: false })
+    isEmailVerified!: boolean;
+
+    @Column({
+        nullable: true,
+        select: false,
+    })
+    emailVerificationCode!: string;
+
+    @Column({
+        type:'timestamp',
+        nullable:true,
+        select:false
+    })
+    emailVerificationCodeExpiresAt!: Date;
+
+    @Column({
+        nullable:true,
+        select:false
+    })
+    passwordResetCode!:string;
+
+    @Column({
+        nullable:true,
+        select:false
+    })
+    passwordResetCodeExpiresAt!:Date;
 
     @CreateDateColumn()
     createdAt!: Date;
@@ -52,34 +80,34 @@ export class UserEntity {
     @OneToMany(() => PostReactionEntity, (postReaction) => postReaction.user)
     postReactions!: PostReactionEntity[];
 
-    @OneToMany(()=>PostPollVoteEntity,(postPollVotes)=>postPollVotes.user)
-    pollVotes!:PostPollVoteEntity[];
+    @OneToMany(() => PostPollVoteEntity, (postPollVotes) => postPollVotes.user)
+    pollVotes!: PostPollVoteEntity[];
 
-    @OneToMany(()=>PostCommentEntity,(postComment)=>postComment.user)
-    postComments!:PostCommentEntity[];
+    @OneToMany(() => PostCommentEntity, (postComment) => postComment.user)
+    postComments!: PostCommentEntity[];
 
-    @OneToMany(()=>PostSaveEntity,(postSave)=>postSave.user)
-    postSaves!:PostSaveEntity[];
+    @OneToMany(() => PostSaveEntity, (postSave) => postSave.user)
+    postSaves!: PostSaveEntity[];
 
-    @OneToMany(()=>PostCommentLikeEntity,(postCommentLike)=>postCommentLike.user)
-    commentLikes!:PostCommentLikeEntity[];
+    @OneToMany(() => PostCommentLikeEntity, (postCommentLike) => postCommentLike.user)
+    commentLikes!: PostCommentLikeEntity[];
 
-    @OneToMany(()=>QuestionAnswerEntity,(questionAnswer)=>questionAnswer.user)
-    answers!:QuestionAnswerEntity[];
+    @OneToMany(() => QuestionAnswerEntity, (questionAnswer) => questionAnswer.user)
+    answers!: QuestionAnswerEntity[];
 
-    @OneToMany(()=>AnswerVoteEntity,(answerVote)=>answerVote.user)
-    answerVotes!:AnswerVoteEntity[];
+    @OneToMany(() => AnswerVoteEntity, (answerVote) => answerVote.user)
+    answerVotes!: AnswerVoteEntity[];
 
-    @OneToMany(()=>GroupEntity,(group)=>group.createdBy)
-    createdGroups!:GroupEntity[];
+    @OneToMany(() => GroupEntity, (group) => group.createdBy)
+    createdGroups!: GroupEntity[];
 
-    @OneToMany(()=>GroupMemberEntity,(groupMember)=>groupMember.user)
-    groupMemberships!:GroupMemberEntity[];
+    @OneToMany(() => GroupMemberEntity, (groupMember) => groupMember.user)
+    groupMemberships!: GroupMemberEntity[];
 
-    @OneToMany(()=>ConversationParticipantEntity,(conversationParticipant)=>conversationParticipant.user)
-    conversationParticipations!:ConversationParticipantEntity[];
+    @OneToMany(() => ConversationParticipantEntity, (conversationParticipant) => conversationParticipant.user)
+    conversationParticipations!: ConversationParticipantEntity[];
 
-    @OneToMany(()=>MessageEntity,(message)=>message.sender)
-    messagesSent!:MessageEntity[]
+    @OneToMany(() => MessageEntity, (message) => message.sender)
+    messagesSent!: MessageEntity[];
 
 }

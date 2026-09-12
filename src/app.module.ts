@@ -16,6 +16,7 @@ import { PostModule } from './modules/post/post.module';
 import { SupabaseModule } from './shared/supabase/supabase.module';
 import { GroupModule } from './modules/group/group.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -47,7 +48,8 @@ import { ChatModule } from './modules/chat/chat.module';
     AnalyticsModule,
     PostModule,
     GroupModule,
-    ChatModule
+    ChatModule,
+    MailModule
 
   ],
   controllers: [],
