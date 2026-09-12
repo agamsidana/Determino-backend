@@ -50,6 +50,11 @@ export class PostController {
         return await this.questionService.getQuestions(query,user.id);
     }
 
+    @Get('question/:questionId')
+    async getQuestionById(@Param('questionId') questionId:string,@CurrentUser() user:UserEntity){
+        return await this.questionService.getQuestionById(questionId,user.id);
+    }
+
     @Get('hashtags/suggest')
     @ApiQuery({
         name: 'q',

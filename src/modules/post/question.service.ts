@@ -202,6 +202,104 @@ export class QuestionService {
 
     }
 
+    async getQuestionById(questionId:string,userId:string){
+
+        const queryBuilder = this.postRepository
+                            .createQueryBuilder('post')
+
+                            .leftJoinAndSelect('post.user','user')
+                            .leftJoinAndSelect('user.profile','profile')
+                            .leftJoinAndSelect('profile.exam','exam')
+
+                            .leftJoin('post.reactions', 'reaction', 'reaction.type = :reactionType', {
+                                reactionType: ReactionType.HELPFUL,
+                            })
+                            .leftJoin('post.answers', 'answer', 'answer.isDeleted = :isDeleted', {
+                                isDeleted: false
+                            })
+
+                            .where('post.id = :questionId', { questionId })
+                            .andWhere('post.isDeleted = :isDeleted', { isDeleted: false })
+                            .andWhere('post.type = :type', { type: PostType.QUESTION })
+
+                            .addSelect('COUNT(DISTINCT reaction.id)', 'upvoteCount')
+                            .addSelect('COUNT(DISTINCT answer.id)', 'answerCount')
+
+                            .addSelect(
+                                `EXISTS (
+                                    SELECT 1 FROM post_reactions user_reaction
+                                    WHERE user_reaction."postId" = post.id
+                                        AND user_reaction."userId" = :userId
+                                        AND user_reaction.type = :reactionType
+                                )`,
+                                'isUpvoted',
+                            )
+
+                            .addSelect(
+                                `EXISTS (
+                                    SELECT 1 FROM post_saves user_save
+                                    WHERE user_save."postId" = post.id
+                                        AND user_save."userId" = :userId
+                                )`,
+                                'isSaved',
+                            )
+
+                            .addSelect(
+                                `EXISTS (
+                                    SELECT 1 FROM question_answers qa
+                                    WHERE qa."postId" = post.id
+                                        AND qa."isAccepted" = true
+                                )`,
+                                'hasAcceptedAnswer',
+                            )
+
+                            .setParameter('userId', userId)
+                            .setParameter('reactionType', ReactionType.HELPFUL)
+                            .groupBy('post.id')
+                            .addGroupBy('user.id')
+                            .addGroupBy('profile.id')
+                            .addGroupBy('exam.id');
+
+        const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+        if (!entities.length) {
+            throw new NotFoundException('Question not found');
+        }
+
+        const post = entities[0];
+        const row = raw[0];
+
+        const postWithHashtags = await this.postRepository.findOne({
+            where: { id: questionId },
+            relations: { hashtags: true }
+        });
+
+        return {
+            data: {
+                id: post.id,
+                title: post.title,
+                content: post.content,
+                type: post.type,
+                createdAt: post.createdAt,
+
+                author: {
+                    id: post.user.id,
+                    name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
+                    exam: post.user.profile.exam?.name ?? null,
+                },
+
+                upvoteCount: Number(row.upvoteCount),
+                isUpvoted: row.isUpvoted === true || row.isUpvoted === 'true',
+                isSaved: row.isSaved === true || row.isSaved === 'true',
+                answerCount: Number(row.answerCount),
+                hasAcceptedAnswer: row.hasAcceptedAnswer === true || row.hasAcceptedAnswer === 'true',
+
+                hashtags: postWithHashtags?.hashtags.map((h) => ({ id: h.id, name: h.name })) ?? [],
+            }
+        }
+        
+    }
+
     async submitAnswer(questionId: string, user: UserEntity, dto: CreateAnswerDto) {
 
         const { content } = dto;
