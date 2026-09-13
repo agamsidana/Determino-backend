@@ -25,14 +25,40 @@ export class AuthService {
 
     constructor(private readonly userService: UserService, private readonly profileService: ProfileService, private readonly jwtService: JwtService, private readonly dataSource: DataSource, private readonly configService: ConfigService, private readonly mailService: MailService) { }
 
-    async signup(dto: SignUpDto): Promise<SignupResponseDto> {
+    async signup(dto: SignUpDto) {
 
         const { firstName, lastName, email, password } = dto;
 
         const existingUser = await this.userService.findUserByEmail(email);
 
         if (existingUser) {
+           
+            if(!existingUser.isEmailVerified){
+                // Generate a new verification code
+                const verificationCode = this.generateVerificationCode();
+                const verificationCodeExpiresAt = this.getVerificationCodeExpiry();
+
+                existingUser.emailVerificationCode=verificationCode;
+                existingUser.emailVerificationCodeExpiresAt=verificationCodeExpiresAt;
+
+                await this.userService.saveUser(existingUser);
+
+                await this.mailService.sendVerificationEmail(
+                    'sidanaagam@gmail.com',
+                    verificationCode
+                );
+
+                return {
+                    data:{
+                        email:existingUser.email,
+                        isEmailVerified:false
+                    }
+                }
+
+            }
+
             throw new ConflictException(AUTH_MESSAGES.EMAIL_ALREADY_EXISTS);
+
         }
 
         const verificationCode = this.generateVerificationCode();
@@ -60,25 +86,10 @@ export class AuthService {
             verificationCode,
         );
 
-        const payload: JwtPayload = {
-            sub: result.newUser.id,
-            email: result.newUser.email
-        }
-
-        const accessToken = await this.jwtService.signAsync(payload);
-
-        return {
-            data: {
-                accessToken,
-                user: {
-                    id: result.newUser.id,
-                    email: result.newUser.email
-                },
-                profile: {
-                    firstName: result.userProfile.firstName,
-                    lastName: result.userProfile.lastName,
-                    role: result.userProfile.role
-                }
+        return{
+            data:{
+                email:result.newUser.email,
+                isEmailVerified:false
             }
         }
 
@@ -98,6 +109,10 @@ export class AuthService {
 
         if (!isPasswordCorrect) {
             throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
+        }
+
+        if(!existingUser.isEmailVerified){
+            throw new BadRequestException('Please verify your email before logging in');
         }
 
         const payload: JwtPayload = {
@@ -177,9 +192,29 @@ export class AuthService {
 
         await this.userService.saveUser(user);
 
+        //Generate JWT after successfull verification
+        const payload: JwtPayload = {
+            sub: user.id,
+            email: user.email
+        }
+
+
+        const accessToken = await this.jwtService.signAsync(payload);
+
+
+
         return {
             data: {
-                message: 'Email verified successfully',
+                accessToken,
+                user:{
+                    id:user.id,
+                    email:user.email
+                },
+                profile:{
+                    firstName:user.profile.firstName,
+                    lastName:user.profile.lastName,
+                    role:user.profile.role
+                }
             },
         };
     }

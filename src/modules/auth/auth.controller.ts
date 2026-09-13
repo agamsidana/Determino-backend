@@ -27,7 +27,7 @@ export class AuthController {
         }
     })
     @Post('signup')
-    async signup(@Body() dto: SignUpDto): Promise<SignupResponseDto> {
+    async signup(@Body() dto: SignUpDto) {
         return await this.authService.signup(dto);
     }
 

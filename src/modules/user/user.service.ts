@@ -37,6 +37,7 @@ export class UserService {
     ){
         return this.userRepository
         .createQueryBuilder('user')
+        .leftJoinAndSelect('user.profile','profile')
         .addSelect('user.emailVerificationCode')
         .addSelect('user.emailVerificationCodeExpiresAt')
         .where('user.email = :email', { email })
