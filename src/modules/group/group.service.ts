@@ -326,7 +326,7 @@ export class GroupService {
         })
     }
 
-    async leaveGroup(userId: string, groupId: string) {
+    async leaveGroup(user: UserEntity, groupId: string) {
 
         const membership = await this.groupMemberRepository.findOne({
             where: {
@@ -334,7 +334,7 @@ export class GroupService {
                     id: groupId
                 },
                 user: {
-                    id: userId
+                    id: user.id
                 }
             }
         });
@@ -362,12 +362,15 @@ export class GroupService {
 
         const group = await this.groupRepository.findOne({
             where: {
-                id: groupId
+                id: groupId,
+                isDeleted:false
             },
             relations: {
                 conversation: true
             }
         });
+
+        if(!group) throw new NotFoundException(GROUP_MESSAGES.GROUP_NOT_FOUND)
 
         return await this.dataSource.transaction(async (manager) => {
 
@@ -376,9 +379,11 @@ export class GroupService {
                     id: groupId
                 },
                 user: {
-                    id: userId
+                    id: user.id
                 }
             });
+
+            let systemMessage: null | MessageEntity = null;
 
             if (group?.conversation) {
                 await manager.delete(ConversationParticipantEntity, {
@@ -386,7 +391,7 @@ export class GroupService {
                         id: group.conversation.id
                     },
                     user: {
-                        id: userId
+                        id: user.id
                     }
                 });
 
@@ -397,19 +402,30 @@ export class GroupService {
                         id: group.conversation.id
                     },
                     sender: {
-                        id: userId
+                        id: user.id
                     }
                 });
 
-                await manager.save(sysMsg);
+                systemMessage = await manager.save(sysMsg);
             }
 
             return {
-                data: {
-                    groupId,
-                    isJoined: false
+                    data: {
+                        groupId,
+                        conversationId:group.conversation.id ?? null,
+                        isJoined: false,
+                        systemMessage: systemMessage ? {
+                            id: systemMessage.id,
+                            type: MessageType.SYSTEM,
+                            systemEventType: SystemEventType.USER_LEFT,
+                            createdAt: systemMessage.createdAt,
+                            sender: {
+                                id: user.id,
+                                name: `${user.profile.firstName} ${user.profile.lastName}`
+                            }
+                        } : null
+                    }
                 }
-            }
 
         })
 

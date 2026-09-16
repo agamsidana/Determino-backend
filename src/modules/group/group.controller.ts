@@ -40,7 +40,9 @@ export class GroupController {
 
     @Delete(':groupId/join')
     async leaveGroup(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
-        return await this.groupService.leaveGroup(user.id,groupId);
+        const result = await this.groupService.leaveGroup(user,groupId);
+        this.messageGateway.emitNewMessage(result.data.conversationId,result.data.systemMessage);
+        return result;
     }
 
     @Post(':groupId/members/:targetUserId/promote')
