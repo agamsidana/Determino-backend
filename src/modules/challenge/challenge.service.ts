@@ -7,11 +7,12 @@ import { ResetPeriod } from './enums/reset-period.enum';
 import { HabitGoalType } from './enums/habit-goal-type.enum';
 import { ChallengeType } from './enums/challenge-type.enum';
 import { ChallengeProgressEntity } from './entities/challenge-progress.entity';
+import { QuizEntity } from './entities/quiz.entity';
 
 @Injectable()
 export class ChallengeService {
 
-    constructor(@InjectRepository(ChallengeEntity) private readonly challengeRepository: Repository<ChallengeEntity>, @InjectRepository(ChallengeParticipantEntity) private readonly challengeParticipantRepository: Repository<ChallengeParticipantEntity>,@InjectRepository(ChallengeProgressEntity) private readonly challengeProgressRepository:Repository<ChallengeProgressEntity>) { }
+    constructor(@InjectRepository(ChallengeEntity) private readonly challengeRepository: Repository<ChallengeEntity>, @InjectRepository(ChallengeParticipantEntity) private readonly challengeParticipantRepository: Repository<ChallengeParticipantEntity>,@InjectRepository(ChallengeProgressEntity) private readonly challengeProgressRepository:Repository<ChallengeProgressEntity>,@InjectRepository(QuizEntity) private readonly quizRepository:Repository<QuizEntity>) { }
 
     async getChallenges(userId:string) {
 
@@ -132,6 +133,61 @@ export class ChallengeService {
             }
 
             throw err;
+        }
+
+    }
+
+    async getTodayQuiz(challengeId:string){
+
+        const challenge = await this.challengeRepository.findOne({
+            where:{
+                id:challengeId,
+                isActive:true
+            }
+        });
+
+        if(!challenge){
+            throw new NotFoundException('challenge not found');
+        }
+
+        if (challenge.type !== ChallengeType.QUIZ) {
+             throw new BadRequestException('This challenge is not a quiz');
+        }
+
+        const today = this.getPeriodStart(ResetPeriod.DAILY);
+
+        const queryBuilder = this.quizRepository
+                             .createQueryBuilder('quiz')
+
+                             .leftJoin('quiz.challenge','challenge')
+                             .leftJoinAndSelect('quiz.questions', 'questions')
+
+                             .where('challenge.id = :challengeId',{challengeId})
+                             .andWhere('quiz.isActive = :isActive',{isActive:true})
+                             .andWhere('quiz.quizDate = :todayStart',{today})
+                             
+        const quiz = await queryBuilder.getOne();
+
+        if(!quiz){
+            throw new NotFoundException('Today\'s quiz not found');
+        }
+
+        const questions = quiz.questions.map((question) => ({
+            id: question.id,
+            question: question.question,
+            optionA: question.optionA,
+            optionB: question.optionB,
+            optionC: question.optionC,
+            optionD: question.optionD
+        }));
+
+        return {
+            data:{
+                id:quiz.id,
+                title:quiz.title,
+                quizDate:quiz.quizDate,
+                questions
+            }
         }
 
     }

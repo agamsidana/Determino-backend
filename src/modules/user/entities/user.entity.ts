@@ -1,5 +1,6 @@
 import { ChallengeParticipantEntity } from "src/modules/challenge/entities/challenge-participant.entity";
 import { ChallengeProgressEntity } from "src/modules/challenge/entities/challenge-progress.entity";
+import { QuizAttemptEntity } from "src/modules/challenge/entities/quiz-attempt.entity";
 import { ConversationParticipantEntity } from "src/modules/chat/entities/conversation-participant.entity";
 import { MessageEntity } from "src/modules/chat/entities/message.entity";
 import { GroupMemberEntity } from "src/modules/group/entities/group-member.entity";
@@ -117,5 +118,8 @@ export class UserEntity {
 
     @OneToMany(()=>ChallengeProgressEntity,(challengeProgress)=>challengeProgress.user)
     challengeProgress!:ChallengeProgressEntity[];
+
+    @OneToMany(()=>QuizAttemptEntity,(quizAttempt)=>quizAttempt.user)
+    quizAttempts!:QuizAttemptEntity[];
 
 }

@@ -4,6 +4,7 @@ import { HabitGoalType } from "../enums/habit-goal-type.enum";
 import { ResetPeriod } from "../enums/reset-period.enum";
 import { ChallengeParticipantEntity } from "./challenge-participant.entity";
 import { ChallengeProgressEntity } from "./challenge-progress.entity";
+import { QuizEntity } from "src/modules/challenge/entities/quiz.entity";
 
 @Entity({name:'challenges'})
 export class ChallengeEntity{
@@ -40,5 +41,8 @@ export class ChallengeEntity{
 
     @OneToMany(()=>ChallengeProgressEntity,(challengeProgress)=>challengeProgress.challenge)
     challengeProgress!:ChallengeProgressEntity[];
+
+    @OneToMany(()=>QuizEntity,(quiz)=>quiz.challenge)
+    quizess!:QuizEntity[];
 
 }
