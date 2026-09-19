@@ -431,6 +431,65 @@ export class GroupService {
 
     }
 
+    async getGroupMembers(groupId: string, userId: string, query: PaginationQueryDto) {
+
+        const { page, limit } = query;
+
+        const skip = (page - 1) * limit
+
+        const isMember = await this.groupMemberRepository.findOne({
+            where: {
+                group: {
+                    id: groupId,
+                },
+                user: {
+                    id: userId,
+                },
+            },
+        });
+
+        if (!isMember) {
+            throw new ForbiddenException(
+                'You are not a member of this group',
+            );
+        }
+
+        const [members,total] = await this.groupMemberRepository.findAndCount({
+            where: {
+                group: {
+                    id: groupId
+                }
+            },
+            relations: {
+                user: {
+                    profile: true
+                }
+            },
+            take: limit,
+            skip
+        });
+
+        const transformedResponse = members.map((member) => ({
+            id: member.user.id,
+            name: `${member.user.profile.firstName} ${member.user.profile.lastName}`,
+            role:member.role
+        }));
+
+
+        return {
+            data: {
+                members: transformedResponse,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit),
+                },
+            },
+        };
+
+    }
+
     async promoteMember(groupId: string, targetUserId: string, userId: string) {
 
         const requesterMembership = await this.groupMemberRepository.findOne({

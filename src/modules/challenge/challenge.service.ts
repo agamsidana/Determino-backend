@@ -275,7 +275,7 @@ export class ChallengeService {
             throw new NotFoundException('Quiz attempt not found');
         }
 
-        const percentage = (attempt.score / attempt.totalQuestions) * 100;
+        const percentage = Number((attempt.score / attempt.totalQuestions) * 100).toFixed(2);
 
         const answers = attempt.attemptAnswers.map((ans)=>({
             questionId:ans.question.id,

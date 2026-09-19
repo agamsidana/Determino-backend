@@ -31,6 +31,11 @@ export class GroupController {
 
     }
 
+    @Get(':groupId/members')
+    async getGroupMembers(@Param('groupId') groupId:string,@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
+        return await this.groupService.getGroupMembers(groupId,user.id,query)
+    }
+
     @Post(':groupId/join')
     async joinGroup(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
         const result =  await this.groupService.joinGroup(user,groupId);
