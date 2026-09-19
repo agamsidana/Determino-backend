@@ -28,6 +28,11 @@ export class ChallengeController {
         return await this.challengeService.getQuizResult(quizId,user.id);
     }
 
+    @Get(':challengeId/leaderboard')
+    async getLeaderboard(@Param('challengeId') challengeId:string,@CurrentUser() user:UserEntity){
+        return await this.challengeService.getLeaderboard(challengeId,user.id);
+    }
+
     @Post(':challengeId/join')
     async joinChallenge(@Param('challengeId') challengeId:string,@CurrentUser() user:UserEntity){
         return await this.challengeService.joinChallenge(challengeId,user.id);

@@ -8,6 +8,7 @@ export class SubmitQuizAnswerDto{
     @IsUUID()
     questionId!:string;
 
+    @ApiProperty()
     @IsString()
     @IsNotEmpty()
     selectedOption!:string;
@@ -16,7 +17,7 @@ export class SubmitQuizAnswerDto{
 
 export class SubmitQuizDto{
 
-    @ApiProperty()
+    @ApiProperty({ type: () => SubmitQuizAnswerDto, isArray: true })    
     @IsArray()
     @ValidateNested({each:true})
     @Type(()=>SubmitQuizAnswerDto)

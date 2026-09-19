@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ChallengeEntity } from './entities/challenge.entity';
-import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, LessThan, MoreThan, QueryFailedError, Repository } from 'typeorm';
 import { ChallengeParticipantEntity } from './entities/challenge-participant.entity';
 import { ResetPeriod } from './enums/reset-period.enum';
 import { HabitGoalType } from './enums/habit-goal-type.enum';
@@ -63,6 +63,38 @@ export class ChallengeService {
                                 'isCompleted'
                              )
 
+                            .addSelect(
+                                `
+                                (
+                                    SELECT q.id
+                                    FROM quizzes q
+                                    WHERE q."challengeId" = challenge.id
+                                    AND q."quizDate" = CAST(:todayStart AS date)
+                                    AND q."isActive" = true
+                                    AND challenge.type = 'QUIZ'
+                                    LIMIT 1
+                                )
+                                `,
+                                'todayQuizId'
+                            )
+
+                            .addSelect(
+                                `
+                                EXISTS (
+                                    SELECT 1
+                                    FROM quiz_attempts qa
+                                    INNER JOIN quizzes q
+                                        ON q.id = qa."quizId"
+                                    WHERE q."challengeId" = challenge.id
+                                    AND q."quizDate" = CAST(:todayStart AS date)
+                                    AND q."isActive" = true
+                                    AND qa."userId" = :userId
+                                    AND challenge.type = 'QUIZ'
+                                )
+                                `,
+                                'isQuizAttempted'
+                            )
+
                              .setParameter('userId',userId)
                              .setParameter('todayStart',todayStart)
                              .setParameter('weekStart',weekStart)
@@ -71,18 +103,31 @@ export class ChallengeService {
         
         const { entities, raw } = await queryBuilder.getRawAndEntities();
 
-        const transformedResponse = entities.map((c, index) => ({
-            id: c.id,
-            title: c.title,
-            description: c.description,
-            type: c.type,
-            goalType: c.goalType ?? null,
-            targetValue: c.targetValue ?? null,
-            resetPeriod: c.resetPeriod ?? null,
-            isJoined: raw[index].isJoined === true || raw[index].isJoined === 'true',
-            currentProgress: raw[index].currentProgress !== null ? Number(raw[index].currentProgress) : 0,
-            isCompleted: raw[index].isCompleted === true || raw[index].isCompleted === 'true',
-        }));
+        const transformedResponse = entities.map((c, index) => {
+          
+            const todayQuizId = raw[index].todayQuizId ?? null;
+
+            const isQuizAttempted = raw[index].isQuizAttempted === true || raw[index].isQuizAttempted === 'true';
+            
+            return {
+                id: c.id,
+                title: c.title,
+                description: c.description,
+                type: c.type,
+                goalType: c.goalType ?? null,
+                targetValue: c.targetValue ?? null,
+                resetPeriod: c.resetPeriod ?? null,
+                isJoined: raw[index].isJoined === true || raw[index].isJoined === 'true',
+                currentProgress: raw[index].currentProgress !== null ? Number(raw[index].currentProgress) : 0,
+                isCompleted: raw[index].isCompleted === true || raw[index].isCompleted === 'true',
+                todayQuiz: c.type === ChallengeType.QUIZ && todayQuizId
+                ? {
+                    id: todayQuizId,
+                    isAttempted: isQuizAttempted,
+                }
+                : null,
+            }
+        });
 
         return {
             data: {
@@ -251,7 +296,7 @@ export class ChallengeService {
         return {
             data:{
                 attemptId:attempt.id,
-                quizId:attempt.quiz.id,
+                quizId,
                 score:attempt.score,
                 totalQuestions:attempt.totalQuestions,
                 percentage,
@@ -452,6 +497,119 @@ export class ChallengeService {
         monday.setDate(now.getDate() + difftoMonday);
 
         return monday.toISOString().slice(0,10);
+    }
+
+    async getLeaderboard(challengeId: string, userId: string) {
+
+        const today = this.getPeriodStart(ResetPeriod.DAILY);
+
+        const quiz = await this.quizRepository.findOne({
+            where: {
+                isActive: true,
+                quizDate: today,
+                challenge: {
+                    id: challengeId
+                }
+            }
+        });
+
+        if (!quiz) {
+            throw new NotFoundException("Today's quiz not found");
+        }
+
+        const attempts = await this.quizAttemptRepository.find({
+            where: {
+                quiz: {
+                    id: quiz.id
+                }
+            },
+            relations: {
+                user: {
+                    profile: true
+                }
+            },
+            order: {
+                score: 'DESC',
+                submittedAt: 'ASC'
+            },
+
+            take: 7
+        });
+
+        const leaderboard = attempts.map((attempt, idx) => ({
+            rank: idx + 1,
+            userId: attempt.user.id,
+            name: `${attempt.user.profile.firstName} ${attempt.user.profile.lastName}`,
+            score: attempt.score,
+            totalQuestions: attempt.totalQuestions,
+            submittedAt: attempt.submittedAt
+        }));
+
+        const myAttempt = await this.quizAttemptRepository.findOne({
+            where: {
+                quiz: {
+                    id: quiz.id,
+                },
+                user: {
+                    id: userId,
+                },
+            },
+            relations: {
+                user: {
+                    profile: true,
+                },
+            },
+        });
+
+        if (!myAttempt) {
+            return {
+                data: {
+                    leaderboard,
+                    myEntry: null,
+                },
+            };
+        }
+
+        const betterAttempts = await this.quizAttemptRepository.count({
+            where: [
+                {
+                    quiz: {
+                        id: quiz.id,
+                    },
+                    score: MoreThan(myAttempt.score),
+                },
+                {
+                    quiz: {
+                        id: quiz.id,
+                    },
+                    score: myAttempt.score,
+                    submittedAt: LessThan(myAttempt.submittedAt),
+                },
+            ],
+        });
+
+        const myRank = betterAttempts + 1;
+
+        const myEntry = {
+                rank: myRank,
+                userId: myAttempt.user.id,
+                name: `${myAttempt.user.profile.firstName} ${myAttempt.user.profile.lastName}`,
+                score: myAttempt.score,
+                totalQuestions: myAttempt.totalQuestions,
+                submittedAt: myAttempt.submittedAt,
+            };
+
+        return {
+            data: {
+                leaderboard,
+                myEntry,
+            },
+        };
+
+
+
+
+
     }
 
 
