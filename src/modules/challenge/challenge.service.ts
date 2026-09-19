@@ -1,18 +1,21 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ChallengeEntity } from './entities/challenge.entity';
-import { EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { ChallengeParticipantEntity } from './entities/challenge-participant.entity';
 import { ResetPeriod } from './enums/reset-period.enum';
 import { HabitGoalType } from './enums/habit-goal-type.enum';
 import { ChallengeType } from './enums/challenge-type.enum';
 import { ChallengeProgressEntity } from './entities/challenge-progress.entity';
 import { QuizEntity } from './entities/quiz.entity';
+import { SubmitQuizDto } from './dto/submit-quiz.dto';
+import { QuizAttemptEntity } from './entities/quiz-attempt.entity';
+import { QuizAttemptAnswerEntity } from './entities/quiz-attempt-answer.entity';
 
 @Injectable()
 export class ChallengeService {
 
-    constructor(@InjectRepository(ChallengeEntity) private readonly challengeRepository: Repository<ChallengeEntity>, @InjectRepository(ChallengeParticipantEntity) private readonly challengeParticipantRepository: Repository<ChallengeParticipantEntity>,@InjectRepository(ChallengeProgressEntity) private readonly challengeProgressRepository:Repository<ChallengeProgressEntity>,@InjectRepository(QuizEntity) private readonly quizRepository:Repository<QuizEntity>) { }
+    constructor(@InjectRepository(ChallengeEntity) private readonly challengeRepository: Repository<ChallengeEntity>, @InjectRepository(ChallengeParticipantEntity) private readonly challengeParticipantRepository: Repository<ChallengeParticipantEntity>,@InjectRepository(ChallengeProgressEntity) private readonly challengeProgressRepository:Repository<ChallengeProgressEntity>,@InjectRepository(QuizEntity) private readonly quizRepository:Repository<QuizEntity>, @InjectRepository(QuizAttemptEntity) private readonly quizAttemptRepository:Repository<QuizAttemptEntity>,@InjectRepository(QuizAttemptAnswerEntity) private readonly quizAttemptAnswerRepository:Repository<QuizAttemptAnswerEntity>,private readonly dataSource:DataSource) { }
 
     async getChallenges(userId:string) {
 
@@ -137,7 +140,7 @@ export class ChallengeService {
 
     }
 
-    async getTodayQuiz(challengeId:string){
+    async getTodayQuiz(challengeId:string,userId:string){
 
         const challenge = await this.challengeRepository.findOne({
             where:{
@@ -162,23 +165,35 @@ export class ChallengeService {
                              .leftJoin('quiz.challenge','challenge')
                              .leftJoinAndSelect('quiz.questions', 'questions')
 
+                             .addSelect(`
+                                EXISTS (
+                                SELECT 1 FROM quiz_attempts attempt
+                                WHERE attempt."quizId" = quiz.id
+                                AND attempt."userId" = :userId
+                                )`,
+                                'isAttempted'
+                            )
+
                              .where('challenge.id = :challengeId',{challengeId})
                              .andWhere('quiz.isActive = :isActive',{isActive:true})
-                             .andWhere('quiz.quizDate = :todayStart',{today})
+                             .andWhere('quiz.quizDate = :today',{today})
+
+                             .setParameter('userId',userId)
                              
-        const quiz = await queryBuilder.getOne();
+        const {entities,raw} = await queryBuilder.getRawAndEntities();
+
+        const quiz = entities[0];
 
         if(!quiz){
             throw new NotFoundException('Today\'s quiz not found');
         }
 
+        const isAttempted = raw[0]?.isAttempted === true || raw[0]?.isAttempted === 'true';
+
         const questions = quiz.questions.map((question) => ({
             id: question.id,
             question: question.question,
-            optionA: question.optionA,
-            optionB: question.optionB,
-            optionC: question.optionC,
-            optionD: question.optionD
+            options:[question.optionA,question.optionB,question.optionC,question.optionD]
         }));
 
         return {
@@ -186,10 +201,117 @@ export class ChallengeService {
                 id:quiz.id,
                 title:quiz.title,
                 quizDate:quiz.quizDate,
+                isAttempted,
                 questions
             }
         }
 
+    }
+
+    async submitQuiz(quizId: string, userId: string, dto: SubmitQuizDto) {
+
+        const { answers } = dto
+
+        const quiz = await this.quizRepository.findOne({
+            where: {
+                id: quizId,
+                isActive: true
+            },
+            relations: {
+                questions: true
+            }
+        });
+
+        if (!quiz) {
+            throw new NotFoundException('Quiz not found');
+        }
+
+        const questionMap = new Map(
+            quiz.questions.map(question => [question.id, question])
+        );
+
+        let score = 0;
+
+        const validOptions = ['A', 'B', 'C', 'D'];
+
+        const quizAttemptAnswers = answers.map((ans) => {
+
+            const question = questionMap.get(ans.questionId);
+            if (!question) {
+                throw new BadRequestException('Invalid Question Submitted')
+            }
+
+            if (!validOptions.includes(ans.selectedOption)) {
+                throw new BadRequestException('Invalid option submitted');
+            }
+
+            const isCorrect = ans.selectedOption === question.correctOption;
+
+            if (isCorrect) {
+                score++;
+            }
+
+            return this.quizAttemptAnswerRepository.create({
+                selectedOption: ans.selectedOption,
+                isCorrect,
+                question: {
+                    id: question.id
+                }
+            });
+
+        });
+
+
+        const quizAttempt = this.quizAttemptRepository.create({
+            totalQuestions: quiz.questions.length,
+            score,
+            user: {
+                id: userId
+            },
+            quiz: {
+                id: quiz.id
+            }
+        });
+
+        try {
+            return await this.dataSource.transaction(async (manager) => {
+
+                const savedAttempt = await manager.save(quizAttempt);
+
+                quizAttemptAnswers.forEach((answer) => {
+                    answer.attempt = savedAttempt;
+                });
+
+                await manager.save(
+                    quizAttemptAnswers,
+                );
+
+                return {
+                    data: {
+                        attemptId: savedAttempt.id,
+                        quizId: quiz.id,
+                        score: savedAttempt.score,
+                        totalQuestions: savedAttempt.totalQuestions,
+                        submittedAt: savedAttempt.submittedAt,
+                    },
+                };
+
+            });
+        }
+        catch (err: any) {
+
+            if (
+                err instanceof QueryFailedError &&
+                err.driverError?.code === '23505'
+            ) {
+                throw new BadRequestException(
+                    'You have already submitted this quiz',
+                );
+            }
+
+            throw err;
+
+        }
     }
 
     async recordProgress(userId:string,goalType:HabitGoalType,amount:number,manager:EntityManager){
