@@ -208,6 +208,61 @@ export class ChallengeService {
 
     }
 
+    async getQuizResult(quizId:string,userId:string){
+
+        const attempt = await this.quizAttemptRepository.findOne({
+            where:{
+                quiz:{
+                    id:quizId
+                },
+                user:{
+                    id:userId
+                }
+            },
+            relations:{
+                attemptAnswers:{
+                    question:true
+                }
+            }
+        });
+
+        if(!attempt){
+            throw new NotFoundException('Quiz attempt not found');
+        }
+
+        const percentage = (attempt.score / attempt.totalQuestions) * 100;
+
+        const answers = attempt.attemptAnswers.map((ans)=>({
+            questionId:ans.question.id,
+            question:ans.question.question,
+
+            options:[
+                ans.question.optionA,
+                ans.question.optionB,
+                ans.question.optionC,
+                ans.question.optionD
+            ],
+
+            selectedOption:ans.selectedOption,
+            correctOption:ans.question.correctOption,
+            isCorrect:ans.isCorrect
+        }));
+
+        return {
+            data:{
+                attemptId:attempt.id,
+                quizId:attempt.quiz.id,
+                score:attempt.score,
+                totalQuestions:attempt.totalQuestions,
+                percentage,
+                submittedAt:attempt.submittedAt,
+                answers,
+            }
+        }
+
+
+    }
+
     async submitQuiz(quizId: string, userId: string, dto: SubmitQuizDto) {
 
         const { answers } = dto

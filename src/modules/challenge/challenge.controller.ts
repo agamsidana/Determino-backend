@@ -23,6 +23,11 @@ export class ChallengeController {
         return await this.challengeService.getTodayQuiz(challengeId,user.id);
     }
 
+    @Get('quiz/:quizId/result')
+    async getQuizResult(@Param('quizId') quizId:string,@CurrentUser() user:UserEntity){
+        return await this.challengeService.getQuizResult(quizId,user.id);
+    }
+
     @Post(':challengeId/join')
     async joinChallenge(@Param('challengeId') challengeId:string,@CurrentUser() user:UserEntity){
         return await this.challengeService.joinChallenge(challengeId,user.id);
