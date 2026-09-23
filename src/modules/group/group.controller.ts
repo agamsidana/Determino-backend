@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { GroupService } from './group.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -7,6 +7,7 @@ import { UserEntity } from '../user/entities/user.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { MessageGateway } from '../chat/gateway/message.gateway';
+import { UpdateGroupDto } from './dto/update-group.dto';
 
 @Controller('group')
 @ApiBearerAuth()
@@ -28,6 +29,18 @@ export class GroupController {
     @Get(':groupId')
     async getGroupById(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
         return await this.groupService.getGroupById(user.id,groupId);
+
+    }
+
+    @Get(':groupId/presence')
+    async getGroupPresence(@Param('groupId') groupId:string,@CurrentUser() user:UserEntity){
+        console.log('entered');
+        return await this.groupService.getGroupPresence(groupId,user.id);
+    }
+
+    @Patch(':groupId')
+    async updateGroup(@Param('groupId') groupId:string,@Body() dto:UpdateGroupDto, @CurrentUser() user:UserEntity){
+        return await this.groupService.updateGroup(groupId,user.id,dto);
 
     }
 
