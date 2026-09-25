@@ -8,7 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { PostAttachmentType } from '../enums/post-attachment-type.enum';
-import { UploadMimeType } from '../enums/upload-mime-type.enum';
+import { UploadMimeType } from '../../../shared/enums/upload-mime-type.enum';
 
 export class CreateAttachmentUploadUrlDto {
 
