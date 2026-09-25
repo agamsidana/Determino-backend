@@ -168,37 +168,53 @@ export class ProfileService {
 
     }
 
-    async updateMyProfile(userId:string,dto:UpdateMyProfileDto){
+    async updateMyProfile(userId: string, dto: UpdateMyProfileDto) {
 
-        const profile = await this.profileRepository.findOne({
-            where:{
-                user:{
-                    id:userId
-                }
-            }
+        const user = await this.userRepository.findOne({
+            where: {
+                id: userId,
+            },
+            relations: {
+                profile: {
+                    exam: true,
+                },
+            },
         });
 
-        if(!profile){
-            throw new NotFoundException(USER_MESSAGES.USER_PROFILE_NOT_FOUND);
+        if (!user) {
+            throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
         }
 
-        Object.assign(profile, dto);
+        if (!user.profile) {
+            throw new NotFoundException(
+                USER_MESSAGES.USER_PROFILE_NOT_FOUND,
+            );
+        }
 
-        const updatedProfile = await this.profileRepository.save(profile);
+        Object.assign(user.profile, dto);
+
+        await this.profileRepository.save(user.profile);
 
         return {
-            data:{
-                id:updatedProfile.id,
-                firstName:updatedProfile.firstName,
-                lastName:updatedProfile.lastName,
-                bio:updatedProfile.bio,
-            }
-        }
-
-        
-
-
-
+            data: {
+                id: user.id,
+                email: user.email,
+                createdAt: user.createdAt,
+                profile: {
+                    firstName: user.profile.firstName,
+                    lastName: user.profile.lastName,
+                    role: user.profile.role,
+                    bio: user.profile.bio,
+                    avatar: user.profile.avatar,
+                    exam: user.profile.exam
+                        ? {
+                            id: user.profile.exam.id,
+                            name: user.profile.exam.name,
+                        }
+                        : null,
+                },
+            },
+        };
     }
 
 }
