@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -7,6 +7,8 @@ import { UserEntity } from '../user/entities/user.entity';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
+import { CreateAvatarUploadDto } from './dto/create-avatar-upload.dto';
+import { ConfirmAvatarUploadDto } from './dto/confirm-avatar-upload.dto';
 
 
 @ApiBearerAuth()
@@ -29,6 +31,16 @@ export class ProfileController {
     @Patch()
     async updateProfile(@CurrentUser() user: UserEntity, @Body() dto: UpdateProfileDto): Promise<UpdateProfileResponseDto> {
         return await this.profileService.updateProfile(user, dto)
+    }
+
+    @Post('avatar/upload')
+    async createAvatarUpload(@CurrentUser() user:UserEntity,@Body() dto:CreateAvatarUploadDto){
+        return await this.profileService.createAvatarUpload(user.id,dto);
+    }
+
+    @Post('avatar/confirm')
+    async confirmAvatarUpload(@CurrentUser() user: UserEntity,@Body() dto: ConfirmAvatarUploadDto) {
+        return await this.profileService.confirmAvatarUpload(user.id,dto);
     }
 
 }

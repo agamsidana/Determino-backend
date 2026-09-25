@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProfileEntity } from './entities/profile.entity';
-import { EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CreateProfileData } from './interfaces/create-profile-data.interface';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { USER_MESSAGES } from 'src/shared/constants/messages/user.messages';
@@ -13,11 +13,16 @@ import { GoalService } from '../goal/goal.service';
 import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
 import { UserService } from '../user/user.service';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
+import { CreateAvatarUploadDto } from './dto/create-avatar-upload.dto';
+import { AvatarUploadEntity } from './entities/avatar-upload.entity';
+import { randomUUID } from 'crypto';
+import { SupabaseStorageService } from 'src/shared/supabase/supabase-storage.service';
+import { ConfirmAvatarUploadDto } from './dto/confirm-avatar-upload.dto';
 
 @Injectable()
 export class ProfileService {
 
-    constructor(@InjectRepository(ProfileEntity) private readonly profileRepository: Repository<ProfileEntity>,@InjectRepository(UserEntity) private readonly userRepository:Repository<UserEntity>, private readonly examService: ExamService, private readonly goalService: GoalService) { }
+    constructor(@InjectRepository(ProfileEntity) private readonly profileRepository: Repository<ProfileEntity>, @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>, @InjectRepository(AvatarUploadEntity) private readonly avatarUploadRepository: Repository<AvatarUploadEntity>, private readonly examService: ExamService, private readonly goalService: GoalService, private readonly supabaseStorageService: SupabaseStorageService, private readonly dataSource: DataSource) { }
 
     async createProfile(data: CreateProfileData, manager?: EntityManager): Promise<ProfileEntity> {
 
@@ -213,6 +218,90 @@ export class ProfileService {
                         }
                         : null,
                 },
+            },
+        };
+    }
+
+    async createAvatarUpload(userId: string, dto: CreateAvatarUploadDto) {
+
+        const { fileName, fileSize, mimeType } = dto;
+
+        const uploadId = randomUUID();
+
+        const storagePath = `temp/${userId}/${uploadId}${fileName}`;
+
+        const signedUpload = await this.supabaseStorageService.createUploadUrl('avatars', storagePath);
+
+        const upload = this.avatarUploadRepository.create({
+            id: uploadId,
+            userId,
+            fileName,
+            mimeType,
+            fileSize,
+            storagePath
+        });
+
+        await this.avatarUploadRepository.save(upload);
+
+        return {
+            data: {
+                uploadId,
+                storagePath,
+                uploadUrl: signedUpload.signedUrl,
+            },
+        };
+
+    }
+
+    async confirmAvatarUpload(userId: string, dto: ConfirmAvatarUploadDto) {
+        const upload =
+            await this.avatarUploadRepository.findOne({
+                where: {
+                    id: dto.uploadId,
+                    userId,
+                    isUsed: false,
+                },
+            });
+
+        if (!upload) {
+            throw new BadRequestException(
+                'Invalid or already used avatar upload',
+            );
+        }
+
+        const profile =
+            await this.profileRepository.findOne({
+                where: {
+                    user: {
+                        id: userId,
+                    },
+                },
+            });
+
+        if (!profile) {
+            throw new NotFoundException(
+                USER_MESSAGES.USER_PROFILE_NOT_FOUND,
+            );
+        }
+
+        const avatarUrl =
+            await this.supabaseStorageService.createPublicUrl(
+                'avatars',
+                upload.storagePath,
+            );
+
+        profile.avatar = avatarUrl;
+
+        upload.isUsed = true;
+
+        await this.dataSource.transaction(async (manager) => {
+            await manager.save(profile);
+            await manager.save(upload);
+        });
+
+        return {
+            data: {
+                avatar: avatarUrl,
             },
         };
     }
