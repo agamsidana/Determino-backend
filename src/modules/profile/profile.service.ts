@@ -11,11 +11,13 @@ import { OnboardingStep } from './enums/onboardingStep.enum';
 import { OnboardingScreen } from './enums/onboardingScreen.enum';
 import { GoalService } from '../goal/goal.service';
 import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
+import { UserService } from '../user/user.service';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 
 @Injectable()
 export class ProfileService {
 
-    constructor(@InjectRepository(ProfileEntity) private readonly profileRepository: Repository<ProfileEntity>, private readonly examService: ExamService, private readonly goalService: GoalService) { }
+    constructor(@InjectRepository(ProfileEntity) private readonly profileRepository: Repository<ProfileEntity>,@InjectRepository(UserEntity) private readonly userRepository:Repository<UserEntity>, private readonly examService: ExamService, private readonly goalService: GoalService) { }
 
     async createProfile(data: CreateProfileData, manager?: EntityManager): Promise<ProfileEntity> {
 
@@ -125,6 +127,78 @@ export class ProfileService {
             profile.currentOnboardingStep = OnboardingStep.COMPLETED;
             profile.isOnboardingCompleted = true;
         }
+    }
+
+    async getMyProfile(userId: string) {
+
+        const user = await this.userRepository.findOne({
+            where: {
+                id: userId
+            },
+            relations: {
+                profile: {
+                    exam: true
+                },
+            }
+        });
+        if (!user) {
+            throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
+        }
+
+        return {
+            data: {
+                id: user.id,
+                email: user.email,
+                createdAt: user.createdAt,
+                profile: {
+                    firstName: user.profile.firstName,
+                    lastName: user.profile.lastName,
+                    role: user.profile.role,
+                    bio: user.profile.bio,
+                    avatar: user.profile.avatar,
+                    exam: user.profile.exam
+                        ? {
+                            id: user.profile.exam.id,
+                            name: user.profile.exam.name
+                        }
+                        : null,
+                },
+            },
+        };
+
+    }
+
+    async updateMyProfile(userId:string,dto:UpdateMyProfileDto){
+
+        const profile = await this.profileRepository.findOne({
+            where:{
+                user:{
+                    id:userId
+                }
+            }
+        });
+
+        if(!profile){
+            throw new NotFoundException(USER_MESSAGES.USER_PROFILE_NOT_FOUND);
+        }
+
+        Object.assign(profile, dto);
+
+        const updatedProfile = await this.profileRepository.save(profile);
+
+        return {
+            data:{
+                id:updatedProfile.id,
+                firstName:updatedProfile.firstName,
+                lastName:updatedProfile.lastName,
+                bio:updatedProfile.bio,
+            }
+        }
+
+        
+
+
+
     }
 
 }
