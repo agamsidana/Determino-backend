@@ -32,6 +32,29 @@ export class UserService {
         return user;
     }
 
+    async findUserForEmailVerification(
+        email: string,
+    ){
+        return this.userRepository
+        .createQueryBuilder('user')
+        .leftJoinAndSelect('user.profile','profile')
+        .addSelect('user.emailVerificationCode')
+        .addSelect('user.emailVerificationCodeExpiresAt')
+        .where('user.email = :email', { email })
+        .getOne();
+    }
+
+    async findUserForPasswordReset(
+        email: string,
+    ){
+        return this.userRepository
+        .createQueryBuilder('user')
+        .addSelect('user.passwordResetCode')
+        .addSelect('user.passwordResetCodeExpiresAt')
+        .where('user.email = :email', { email })
+        .getOne();
+    }
+
     async findUserByEmailWithCredentials(email:string){
         const user = this.userRepository
             .createQueryBuilder('user')
@@ -53,6 +76,10 @@ export class UserService {
 
         return savedUser;
 
+    }
+
+    async saveUser(user: UserEntity): Promise<UserEntity> {
+        return await this.userRepository.save(user);
     }
 
 }

@@ -15,11 +15,13 @@ import { GROUP_MESSAGES } from 'src/shared/constants/messages/group.messages';
 import { MessageEntity } from '../chat/entities/message.entity';
 import { MessageType } from '../chat/enums/message-type.enum';
 import { SystemEventType } from '../chat/enums/systemEvent-type.enum';
+import { UpdateGroupDto } from './dto/update-group.dto';
+import { PresenceService } from '../chat/presence.service';
 
 @Injectable()
 export class GroupService {
 
-    constructor(@InjectRepository(GroupEntity) private readonly groupRepository: Repository<GroupEntity>, @InjectRepository(GroupMemberEntity) private readonly groupMemberRepository: Repository<GroupMemberEntity>, private readonly dataSource: DataSource) { }
+    constructor(@InjectRepository(GroupEntity) private readonly groupRepository: Repository<GroupEntity>, @InjectRepository(GroupMemberEntity) private readonly groupMemberRepository: Repository<GroupMemberEntity>,private readonly presenceService:PresenceService ,private readonly dataSource: DataSource) { }
 
     async createGroup(user: UserEntity, dto: CreateGroupDto) {
 
@@ -82,6 +84,46 @@ export class GroupService {
             }
 
         });
+
+    }
+
+    async updateGroup(groupId: string, userId: string, dto: UpdateGroupDto) {
+
+        const { name, description } = dto;
+
+        const group = await this.groupRepository.findOne({
+            where: {
+                id: groupId,
+                members: {
+                    role: GroupRole.ADMIN,
+                    user: {
+                        id: userId
+                    }
+                }
+            }
+        });
+
+        if (!group) {
+            throw new NotFoundException(GROUP_MESSAGES.GROUP_NOT_FOUND);
+        }
+
+        if (name !== undefined) {
+            group.name = name;
+        }
+
+        if (description !== undefined) {
+            group.description = description;
+        }
+
+        const updatedGroup = await this.groupRepository.save(group);
+
+        return {
+            data: {
+                id: updatedGroup.id,
+                name: updatedGroup.name,
+                description: updatedGroup.description
+            }
+        }
 
     }
 
@@ -230,6 +272,52 @@ export class GroupService {
 
     }
 
+    async getGroupPresence(groupId: string, userId: string) {
+
+        const isMember = await this.groupMemberRepository.findOne({
+            where: {
+                group: { id: groupId },
+                user: { id: userId }
+            }
+        });
+
+        if (!isMember) {
+            throw new ForbiddenException(GROUP_MESSAGES.NOT_MEMBER_OF_GROUP)
+        }
+
+        const members = await this.groupMemberRepository.find({
+            where: {
+                group: {
+                    id: groupId
+                }
+            },
+            relations: {
+                user: {
+                    profile: true
+                }
+            }
+        });
+
+        const onlineUsers = members
+            .filter((member) =>
+                this.presenceService.isOnline(member.user.id),
+            )
+            .map((member) => ({
+                id: member.user.id,
+                firstName: member.user.profile.firstName,
+                lastName: member.user.profile.lastName,
+                avatar: member.user.profile.avatar,
+                role: member.role,
+            }));
+
+        return {
+            data: {
+                onlineUsers,
+            },
+        };
+
+    }
+
     async joinGroup(user: UserEntity, groupId: string) {
 
         const group = await this.groupRepository.findOne({
@@ -326,7 +414,7 @@ export class GroupService {
         })
     }
 
-    async leaveGroup(userId: string, groupId: string) {
+    async leaveGroup(user: UserEntity, groupId: string) {
 
         const membership = await this.groupMemberRepository.findOne({
             where: {
@@ -334,7 +422,7 @@ export class GroupService {
                     id: groupId
                 },
                 user: {
-                    id: userId
+                    id: user.id
                 }
             }
         });
@@ -362,12 +450,15 @@ export class GroupService {
 
         const group = await this.groupRepository.findOne({
             where: {
-                id: groupId
+                id: groupId,
+                isDeleted: false
             },
             relations: {
                 conversation: true
             }
         });
+
+        if (!group) throw new NotFoundException(GROUP_MESSAGES.GROUP_NOT_FOUND)
 
         return await this.dataSource.transaction(async (manager) => {
 
@@ -376,9 +467,11 @@ export class GroupService {
                     id: groupId
                 },
                 user: {
-                    id: userId
+                    id: user.id
                 }
             });
+
+            let systemMessage: null | MessageEntity = null;
 
             if (group?.conversation) {
                 await manager.delete(ConversationParticipantEntity, {
@@ -386,7 +479,7 @@ export class GroupService {
                         id: group.conversation.id
                     },
                     user: {
-                        id: userId
+                        id: user.id
                     }
                 });
 
@@ -397,21 +490,91 @@ export class GroupService {
                         id: group.conversation.id
                     },
                     sender: {
-                        id: userId
+                        id: user.id
                     }
                 });
 
-                await manager.save(sysMsg);
+                systemMessage = await manager.save(sysMsg);
             }
 
             return {
                 data: {
                     groupId,
-                    isJoined: false
+                    conversationId: group.conversation.id ?? null,
+                    isJoined: false,
+                    systemMessage: systemMessage ? {
+                        id: systemMessage.id,
+                        type: MessageType.SYSTEM,
+                        systemEventType: SystemEventType.USER_LEFT,
+                        createdAt: systemMessage.createdAt,
+                        sender: {
+                            id: user.id,
+                            name: `${user.profile.firstName} ${user.profile.lastName}`
+                        }
+                    } : null
                 }
             }
 
         })
+
+    }
+
+    async getGroupMembers(groupId: string, userId: string, query: PaginationQueryDto) {
+
+        const { page, limit } = query;
+
+        const skip = (page - 1) * limit
+
+        const isMember = await this.groupMemberRepository.findOne({
+            where: {
+                group: {
+                    id: groupId,
+                },
+                user: {
+                    id: userId,
+                },
+            },
+        });
+
+        if (!isMember) {
+            throw new ForbiddenException(
+                'You are not a member of this group',
+            );
+        }
+
+        const [members, total] = await this.groupMemberRepository.findAndCount({
+            where: {
+                group: {
+                    id: groupId
+                }
+            },
+            relations: {
+                user: {
+                    profile: true
+                }
+            },
+            take: limit,
+            skip
+        });
+
+        const transformedResponse = members.map((member) => ({
+            id: member.user.id,
+            name: `${member.user.profile.firstName} ${member.user.profile.lastName}`,
+            role: member.role
+        }));
+
+
+        return {
+            data: {
+                members: transformedResponse,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit),
+                },
+            },
+        };
 
     }
 

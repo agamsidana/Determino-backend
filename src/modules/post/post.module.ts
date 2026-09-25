@@ -22,9 +22,10 @@ import { PostCommentLikeEntity } from './entities/post-comment-like.entity';
 import { QuestionAnswerEntity } from './entities/question-answer.entity';
 import { AnswerVoteEntity } from './entities/answer-vote.entity';
 import { QuestionService } from './question.service';
+import { ChallengeModule } from '../challenge/challenge.module';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentLikeEntity,QuestionAnswerEntity,AnswerVoteEntity])],
+  imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentLikeEntity,QuestionAnswerEntity,AnswerVoteEntity]),ChallengeModule],
   providers: [PostService,PostReactionService,PostAttachmentService,PostPollService,PostCommentService,PostSaveService,QuestionService],
   controllers: [PostController]
 })

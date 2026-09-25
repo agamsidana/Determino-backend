@@ -8,11 +8,14 @@ import { StudySessionMessages } from 'src/shared/constants/messages/study-sessio
 import { StudySessionResponseDto, StudySessionStatusResponseDto } from './dto/study-session-response.dto';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { HistoryResponseDto } from './dto/history-response.dto';
+import { DataSource } from 'typeorm';
+import { ChallengeService } from '../challenge/challenge.service';
+import { HabitGoalType } from '../challenge/enums/habit-goal-type.enum';
 
 @Injectable()
 export class StudySessionService {
 
-    constructor(@InjectRepository(StudySessionEntity) private readonly studySessionRepository: Repository<StudySessionEntity>) { }
+    constructor(@InjectRepository(StudySessionEntity) private readonly studySessionRepository: Repository<StudySessionEntity>,private challengeService:ChallengeService,private readonly dataSource:DataSource) { }
 
     async startSession(dto: StartSessionDto, userId: string): Promise<StudySessionResponseDto> {
 
@@ -249,13 +252,26 @@ export class StudySessionService {
         const totalSessionSeconds = Math.floor((activeSession.endedAt.getTime() - activeSession.startedAt.getTime()) / 1000);
         activeSession.actualStudySeconds = totalSessionSeconds - activeSession.totalPausedSeconds;
 
-        const savedSession = await this.studySessionRepository.save(activeSession);
+        return await this.dataSource.transaction(async (manager)=>{
 
-        return {
-            data: {
-                status: savedSession.status
+            const savedSession = await manager.save(activeSession);
+
+            const studyMinutes = Math.floor(savedSession.actualStudySeconds/60);
+
+            await this.challengeService.recordProgress(
+                userId,
+                HabitGoalType.STUDY_MINUTES,
+                studyMinutes,
+                manager
+            )
+
+            return {
+                data:{
+                    status:savedSession.status
+                }
             }
-        };
+
+        })
     }
 
     private async findSessionByStatus(userId: string, status: StudySession) {

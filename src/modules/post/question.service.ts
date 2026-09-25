@@ -13,10 +13,12 @@ import { CreateQuestionDto } from "./dto/create-question.dto";
 import { ProfileEntity } from "../profile/entities/profile.entity";
 import { PostService } from "./post.service";
 import { ReactionType } from "./enums/reaction-type.enum";
+import { ChallengeService } from "../challenge/challenge.service";
+import { HabitGoalType } from "../challenge/enums/habit-goal-type.enum";
 
 @Injectable()
 export class QuestionService {
-    constructor(@InjectRepository(QuestionAnswerEntity) private readonly answerRepository: Repository<QuestionAnswerEntity>,@InjectRepository(AnswerVoteEntity) private readonly answerVoteRepository:Repository<AnswerVoteEntity>, @InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(ProfileEntity) private readonly profileRepository:Repository<ProfileEntity>,private readonly postService:PostService,private readonly dataSource:DataSource) { }
+    constructor(@InjectRepository(QuestionAnswerEntity) private readonly answerRepository: Repository<QuestionAnswerEntity>,@InjectRepository(AnswerVoteEntity) private readonly answerVoteRepository:Repository<AnswerVoteEntity>, @InjectRepository(PostEntity) private readonly postRepository: Repository<PostEntity>, @InjectRepository(ProfileEntity) private readonly profileRepository:Repository<ProfileEntity>,private readonly postService:PostService,private readonly challengeService:ChallengeService, private readonly dataSource:DataSource) { }
 
 
     async createQuestion(user:UserEntity,dto:CreateQuestionDto){
@@ -316,32 +318,43 @@ export class QuestionService {
             throw new NotFoundException('question not found');
         }
 
-        const answer = this.answerRepository.create({
-            content,
-            post: {
-                id: post.id
-            },
-            user: {
-                id: user.id
-            }
-        });
+        return await this.dataSource.transaction(async (manager) => {
 
-        const savedAnswer = await this.answerRepository.save(answer);
+            const answer = manager.create(QuestionAnswerEntity, {
+                content,
+                post: {
+                    id: post.id
+                },
+                user: {
+                    id: user.id
+                }
+            });
 
-        return {
-            data: {
-                id: savedAnswer.id,
-                content: savedAnswer.content,
-                isAccepted: false,
-                voteCount: 0,
-                isVoted: false,
-                createdAt: savedAnswer.createdAt,
-                author: {
-                    id: user.id,
-                    name: `${user.profile.firstName} ${user.profile.lastName}`
+            const savedAnswer = await manager.save(answer);
+
+            await this.challengeService.recordProgress(
+                user.id,
+                HabitGoalType.ANSWER_QUESTIONS,
+                1,
+                manager
+            );
+
+            return {
+                data: {
+                    id: savedAnswer.id,
+                    content: savedAnswer.content,
+                    isAccepted: false,
+                    voteCount: 0,
+                    isVoted: false,
+                    createdAt: savedAnswer.createdAt,
+                    author: {
+                        id: user.id,
+                        name: `${user.profile.firstName} ${user.profile.lastName}`
+                    }
                 }
             }
-        }
+
+        })
 
     }
 
@@ -484,40 +497,57 @@ export class QuestionService {
 
     }
 
-    async acceptAnswer(answerId:string,userId:string){
+    async acceptAnswer(answerId: string, userId: string) {
 
-        return this.dataSource.transaction(async (manager)=>{
+        return this.dataSource.transaction(async (manager) => {
 
-            const answer = await manager.findOne(QuestionAnswerEntity,{
-                where:{
-                    id:answerId,
-                    isDeleted:false
+            const answer = await manager.findOne(QuestionAnswerEntity, {
+                where: {
+                    id: answerId,
+                    isDeleted: false
                 },
-                relations:{
-                    post:{user:true}
+                relations: {
+                    post: { user: true },
+                    user: true
                 }
             });
 
-            if(!answer){
+            if (!answer) {
                 throw new NotFoundException('Answer not found');
             }
 
-            if(answer.post.user.id !== userId){
+            if (answer.post.user.id !== userId) {
                 throw new ForbiddenException('Only the question author can accept an answer');
             }
 
+            if (answer.isAccepted) {
+                return {
+                    data: {
+                        id: answer.id,
+                        isAccepted: true
+                    }
+                }
+            }
+
             await manager.update(QuestionAnswerEntity,
-                {post:{id:answer.post.id},isAccepted:true},
-                {isAccepted:false}
+                { post: { id: answer.post.id }, isAccepted: true },
+                { isAccepted: false }
             );
 
             answer.isAccepted = true;
             await manager.save(answer);
 
+            await this.challengeService.recordProgress(
+                answer.user.id,
+                HabitGoalType.ACCEPTED_ANSWERS,
+                1,
+                manager
+            )
+
             return {
-                data:{
-                    id:answer.id,
-                    isAccepted:true
+                data: {
+                    id: answer.id,
+                    isAccepted: true
                 }
             }
 
