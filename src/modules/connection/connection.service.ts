@@ -291,4 +291,41 @@ export class ConnectionService {
 
     }
 
+    async cancelPrepMateRequest(userId: string, connectionId: string) {
+
+        const connection = await this.prepMateConnectionRepository.findOne({
+            where: {
+                id: connectionId
+            },
+            relations: {
+                requester: true
+            }
+        });
+
+        if (!connection) {
+            throw new NotFoundException('PrepMate request not found');
+        }
+
+        if (connection.status !== ConnectionStatus.PENDING) {
+            throw new BadRequestException('Only pending PrepMate requests can be cancelled');
+        }
+
+        if (connection.requester.id !== userId) {
+            throw new ForbiddenException('You cannot cancel this PrepMate request');
+        }
+
+        await this.prepMateConnectionRepository.remove(connection);
+
+        return {
+            data: {
+                id: connection.id,
+                message: 'PrepMate request cancelled successfully',
+            },
+        };
+
+
+
+
+    }
+
 }

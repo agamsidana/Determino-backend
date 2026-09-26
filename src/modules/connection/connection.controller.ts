@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ConnectionService } from './connection.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -29,6 +29,11 @@ export class ConnectionController {
         return await this.connectionService.declinePrepMateRequest(connectionId,user.id);
     }
 
+    @Delete('request/:connectionId')
+    async cancelPrepMateRequest(@CurrentUser() user:UserEntity,@Param('connectionId') connectionId:string){
+        return await this.connectionService.cancelPrepMateRequest(user.id,connectionId);
+    }
+
     @Get('request/pending')
     async getPendingPrepMateRequests(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
         return await this.connectionService.getPendingPrepMateRequests(user.id,query);
@@ -38,5 +43,5 @@ export class ConnectionController {
     async getMyPrepMates(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
         return await this.connectionService.getMyPrepMates(user.id,query);
     }
-
+    
 }
