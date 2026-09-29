@@ -1,17 +1,20 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PrepMateConnectionEntity } from './entities/prepmate-connection.entity';
-import { QueryFailedError, Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { UserService } from '../user/user.service';
 import { USER_MESSAGES } from 'src/shared/constants/messages/user.messages';
 import { ConnectionStatus } from './enums/connection-status.enum';
 import { UserEntity } from '../user/entities/user.entity';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
+import { ConversationEntity } from '../chat/entities/conversation.entity';
+import { ConversationType } from '../chat/enums/conversation-type.enum';
+import { ConversationParticipantEntity } from '../chat/entities/conversation-participant.entity';
 
 @Injectable()
 export class ConnectionService {
 
-    constructor(@InjectRepository(PrepMateConnectionEntity) private readonly prepMateConnectionRepository:Repository<PrepMateConnectionEntity>,private readonly userService:UserService){}
+    constructor(@InjectRepository(PrepMateConnectionEntity) private readonly prepMateConnectionRepository:Repository<PrepMateConnectionEntity>,private readonly userService:UserService,private readonly dataSource:DataSource){}
 
 
     private getCanonicalPair( userId1: string,userId2: string ) {
@@ -120,18 +123,18 @@ export class ConnectionService {
 
     }
 
-    async acceptPrepMateRequest(connectionId:string,userId:string){
+    async acceptPrepMateRequest(connectionId: string, userId: string) {
 
         const connection = await this.prepMateConnectionRepository.findOne({
-            where:{
-                id:connectionId
+            where: {
+                id: connectionId
             },
-            relations:{
-                requester:true,
-                receiver:true
+            relations: {
+                requester: true,
+                receiver: true
             }
         });
-        if(!connection){
+        if (!connection) {
             throw new NotFoundException('PrepMate request not found');
         }
 
@@ -144,18 +147,49 @@ export class ConnectionService {
             throw new ForbiddenException('You cannot accept this PrepMate request');
         }
 
-        connection.status = ConnectionStatus.ACCEPTED;
+        return await this.dataSource.transaction(async (manager) => {
 
-        const updatedConnection = await this.prepMateConnectionRepository.save(connection);
+            connection.status = ConnectionStatus.ACCEPTED;
 
-        return {
-            data: {
-                id: updatedConnection.id,
-                status: updatedConnection.status,
-                requesterId: connection.requester.id,
-                receiverId: connection.receiver.id,
-            },
-        };
+            const updatedConnection = await manager.save(connection);
+
+            const conversation = manager.create(ConversationEntity, {
+                type: ConversationType.DIRECT
+            });
+
+            const savedConversation = await manager.save(conversation);
+
+            const requesterParticipant = manager.create(ConversationParticipantEntity, {
+                conversation: {
+                    id: savedConversation.id
+                },
+                user: {
+                    id: connection.requester.id
+                }
+            });
+
+            const receiverParticipant = manager.create(ConversationParticipantEntity, {
+                conversation: {
+                    id: savedConversation.id
+                },
+                user: {
+                    id: connection.receiver.id
+                }
+            });
+
+            await manager.save([requesterParticipant, receiverParticipant]);
+
+
+            return {
+                data: {
+                    id: updatedConnection.id,
+                    status: updatedConnection.status,
+                    requesterId: connection.requester.id,
+                    receiverId: connection.receiver.id,
+                    conversationId: savedConversation.id,
+                },
+            };
+        })
 
     }
 
