@@ -18,11 +18,15 @@ import { AvatarUploadEntity } from './entities/avatar-upload.entity';
 import { randomUUID } from 'crypto';
 import { SupabaseStorageService } from 'src/shared/supabase/supabase-storage.service';
 import { ConfirmAvatarUploadDto } from './dto/confirm-avatar-upload.dto';
+import { StudySessionService } from '../study-session/study-session.service';
+import { PostService } from '../post/post.service';
+import { use } from 'passport';
+import { ConnectionService } from '../connection/connection.service';
 
 @Injectable()
 export class ProfileService {
 
-    constructor(@InjectRepository(ProfileEntity) private readonly profileRepository: Repository<ProfileEntity>, @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>, @InjectRepository(AvatarUploadEntity) private readonly avatarUploadRepository: Repository<AvatarUploadEntity>, private readonly examService: ExamService, private readonly goalService: GoalService, private readonly supabaseStorageService: SupabaseStorageService, private readonly dataSource: DataSource) { }
+    constructor(@InjectRepository(ProfileEntity) private readonly profileRepository: Repository<ProfileEntity>, @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>, @InjectRepository(AvatarUploadEntity) private readonly avatarUploadRepository: Repository<AvatarUploadEntity>, private readonly examService: ExamService, private readonly goalService: GoalService, private readonly supabaseStorageService: SupabaseStorageService,private readonly studySessionService:StudySessionService,private readonly postService:PostService,private readonly connectionService:ConnectionService, private readonly dataSource: DataSource) { }
 
     async createProfile(data: CreateProfileData, manager?: EntityManager): Promise<ProfileEntity> {
 
@@ -150,6 +154,13 @@ export class ProfileService {
             throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
         }
 
+        const [totalStudyMinutes,totalPosts,totalDoubts,totalPrepMates] = await Promise.all([
+            this.studySessionService.getTotalStudyMinutes(user.id),
+            this.postService.getTotalPosts(user.id),
+            this.postService.getTotalDoubts(user.id),
+            this.connectionService.getTotalPrepMates(user.id)            
+        ]);
+
         return {
             data: {
                 id: user.id,
@@ -168,6 +179,13 @@ export class ProfileService {
                         }
                         : null,
                 },
+
+                stats:{
+                    totalStudyMinutes,
+                    totalPosts,
+                    totalDoubts,
+                    totalPrepMates
+                }
             },
         };
 

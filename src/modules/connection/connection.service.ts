@@ -361,5 +361,20 @@ export class ConnectionService {
 
 
     }
+    
+    async getTotalPrepMates(userId: string): Promise<number> {
+        return this.prepMateConnectionRepository
+            .createQueryBuilder('connection')
+            .leftJoin('connection.userLow', 'userLow')
+            .leftJoin('connection.userHigh', 'userHigh')
+            .where('connection.status = :status', {
+                status: ConnectionStatus.ACCEPTED,
+            })
+            .andWhere(
+                '(userLow.id = :userId OR userHigh.id = :userId)',
+                { userId },
+            )
+            .getCount();
+    }
 
 }

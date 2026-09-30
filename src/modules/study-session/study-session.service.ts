@@ -274,6 +274,26 @@ export class StudySessionService {
         })
     }
 
+    async getTotalStudyMinutes(userId:string){
+
+        const result = await this.studySessionRepository
+                       .createQueryBuilder('session')
+                       .select(
+                        `COALESCE(SUM(session.actualStudySeconds),0)`,
+                        'totalSeconds'
+                       )
+                       .where('session.user.id = :userId',{userId})
+                       .andWhere('session.status = :status',{
+                        status:StudySession.COMPLETED
+                       })
+                       .getRawOne()
+        
+        const totalSeconds = Number(result.totalSeconds);
+
+        return Math.floor(totalSeconds/60);
+
+    }
+
     private async findSessionByStatus(userId: string, status: StudySession) {
 
         return await this.studySessionRepository.findOne({

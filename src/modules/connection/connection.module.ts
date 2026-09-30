@@ -8,6 +8,7 @@ import { UserModule } from '../user/user.module';
 @Module({
   imports:[TypeOrmModule.forFeature([PrepMateConnectionEntity]),UserModule],
   providers: [ConnectionService],
-  controllers: [ConnectionController]
+  controllers: [ConnectionController],
+  exports:[ConnectionService]
 })
 export class ConnectionModule {}
