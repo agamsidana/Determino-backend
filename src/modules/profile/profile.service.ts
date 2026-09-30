@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProfileEntity } from './entities/profile.entity';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { CreateProfileData } from './interfaces/create-profile-data.interface';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { USER_MESSAGES } from 'src/shared/constants/messages/user.messages';
@@ -11,7 +11,6 @@ import { OnboardingStep } from './enums/onboardingStep.enum';
 import { OnboardingScreen } from './enums/onboardingScreen.enum';
 import { GoalService } from '../goal/goal.service';
 import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
-import { UserService } from '../user/user.service';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { CreateAvatarUploadDto } from './dto/create-avatar-upload.dto';
 import { AvatarUploadEntity } from './entities/avatar-upload.entity';
@@ -20,13 +19,21 @@ import { SupabaseStorageService } from 'src/shared/supabase/supabase-storage.ser
 import { ConfirmAvatarUploadDto } from './dto/confirm-avatar-upload.dto';
 import { StudySessionService } from '../study-session/study-session.service';
 import { PostService } from '../post/post.service';
-import { use } from 'passport';
 import { ConnectionService } from '../connection/connection.service';
+import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
+import { PollResult } from '../post/interfaces/poll-result.interface';
+import { PostType } from '../post/enums/post-type.enum';
+import { ReactionType } from '../post/enums/reaction-type.enum';
+import { PostEntity } from '../post/entities/post.entity';
+import { PostAttachmentEntity } from '../post/entities/post-attachment.entity';
+import { PostAttachmentType } from '../post/enums/post-attachment-type.enum';
+import { PostPollOptionEntity } from '../post/entities/post-poll-option.entity';
+import { PostPollVoteEntity } from '../post/entities/post-poll-vote.entity';
 
 @Injectable()
 export class ProfileService {
 
-    constructor(@InjectRepository(ProfileEntity) private readonly profileRepository: Repository<ProfileEntity>, @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>, @InjectRepository(AvatarUploadEntity) private readonly avatarUploadRepository: Repository<AvatarUploadEntity>, private readonly examService: ExamService, private readonly goalService: GoalService, private readonly supabaseStorageService: SupabaseStorageService,private readonly studySessionService:StudySessionService,private readonly postService:PostService,private readonly connectionService:ConnectionService, private readonly dataSource: DataSource) { }
+    constructor(@InjectRepository(ProfileEntity) private readonly profileRepository: Repository<ProfileEntity>, @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>, @InjectRepository(AvatarUploadEntity) private readonly avatarUploadRepository: Repository<AvatarUploadEntity>,@InjectRepository(PostEntity) private readonly postRepository:Repository<PostEntity>,@InjectRepository(PostAttachmentEntity) private readonly postAttachmentRepository:Repository<PostAttachmentEntity>, @InjectRepository(PostPollOptionEntity) private readonly postPollOptionRepository:Repository<PostPollOptionEntity>,@InjectRepository(PostPollVoteEntity) private readonly postPollVoteRepository:Repository<PostPollVoteEntity>,  private readonly examService: ExamService, private readonly goalService: GoalService, private readonly supabaseStorageService: SupabaseStorageService,private readonly studySessionService:StudySessionService,private readonly postService:PostService,private readonly connectionService:ConnectionService, private readonly dataSource: DataSource) { }
 
     async createProfile(data: CreateProfileData, manager?: EntityManager): Promise<ProfileEntity> {
 
@@ -236,6 +243,605 @@ export class ProfileService {
                         }
                         : null,
                 },
+            },
+        };
+    }
+
+    async getMyPosts( userId: string, query: PaginationQueryDto ) {
+        const { page, limit } = query;
+        const skip = (page - 1) * limit;
+
+        const queryBuilder = this.postRepository
+            .createQueryBuilder('post')
+
+            .leftJoinAndSelect('post.user', 'user')
+            .leftJoinAndSelect('user.profile', 'profile')
+            .leftJoinAndSelect('profile.exam', 'exam')
+
+            .leftJoin(
+                'post.reactions',
+                'reaction',
+                'reaction.type = :reactionType',
+                {
+                    reactionType: ReactionType.HELPFUL,
+                },
+            )
+
+            .leftJoin(
+                'post.comments',
+                'comment',
+                'comment.isDeleted = :isDeleted',
+                {
+                    isDeleted: false,
+                },
+            )
+
+            .where('post.isDeleted = :isDeleted', {
+                isDeleted: false,
+            })
+
+            .andWhere('post.type = :type', {
+                type: PostType.POST,
+            })
+
+            // Only current user's posts
+            .andWhere('user.id = :userId', {
+                userId,
+            })
+
+            .addSelect(
+                'COUNT(DISTINCT reaction.id)',
+                'helpfulCount',
+            )
+
+            .addSelect(
+                'COUNT(DISTINCT comment.id)',
+                'replyCount',
+            )
+
+            .addSelect(
+                `EXISTS (
+                SELECT 1
+                FROM post_reactions user_reaction
+                WHERE user_reaction."postId" = post.id
+                AND user_reaction."userId" = :userId
+                AND user_reaction.type = :reactionType
+            )`,
+                'isHelpful',
+            )
+
+            .addSelect(
+                `EXISTS (
+                SELECT 1
+                FROM post_saves user_save
+                WHERE user_save."postId" = post.id
+                AND user_save."userId" = :userId
+            )`,
+                'isSaved',
+            )
+
+            .setParameter('userId', userId)
+
+            .orderBy('post.createdAt', 'DESC')
+
+            .groupBy('post.id')
+            .addGroupBy('user.id')
+            .addGroupBy('profile.id')
+            .addGroupBy('exam.id')
+
+            .skip(skip)
+            .take(limit);
+
+        const { entities, raw } =
+            await queryBuilder.getRawAndEntities();
+
+        const postIds = entities.map(
+            (post) => post.id,
+        );
+
+        // Attachments
+        const attachments = postIds.length
+            ? await this.postAttachmentRepository.find({
+                where: {
+                    post: {
+                        id: In(postIds),
+                    },
+                },
+                relations: {
+                    post: true,
+                },
+            })
+            : [];
+
+        const attachmentsWithUrls =
+            await Promise.all(
+                attachments.map(async (attachment) => {
+                    let url: string | null = null;
+
+                    if (
+                        attachment.type ===
+                        PostAttachmentType.LINK
+                    ) {
+                        url = attachment.url;
+                    } else {
+                        url =
+                            await this.supabaseStorageService.createDownloadUrl(
+                                'post-attachments',
+                                attachment.storagePath,
+                                60 * 60,
+                            );
+                    }
+
+                    return {
+                        id: attachment.id,
+                        postId: attachment.post.id,
+                        type: attachment.type,
+                        fileName: attachment.fileName,
+                        mimeType: attachment.mimeType,
+                        fileSize: attachment.fileSize,
+                        url,
+                    };
+                }),
+            );
+
+        const attachmentsByPost =
+            new Map<string, typeof attachmentsWithUrls>();
+
+        for (const attachment of attachmentsWithUrls) {
+            const existing =
+                attachmentsByPost.get(
+                    attachment.postId,
+                ) ?? [];
+
+            existing.push(attachment);
+
+            attachmentsByPost.set(
+                attachment.postId,
+                existing,
+            );
+        }
+
+
+        //Hashtags
+        const postWithHashtags =
+            postIds.length
+                ? await this.postRepository.find({
+                    where: {
+                        id: In(postIds),
+                    },
+                    relations: {
+                        hashtags: true,
+                    },
+                })
+                : [];
+
+        const hashtagsByPost = new Map(
+            postWithHashtags.map((post) => [
+                post.id,
+                post.hashtags.map((hashtag) => ({
+                    id: hashtag.id,
+                    name: hashtag.name,
+                })),
+            ]),
+        );
+
+
+        //Polls
+        const pollsRaw = postIds.length
+            ? await this.postPollOptionRepository
+                .createQueryBuilder('option')
+
+                .innerJoin(
+                    'option.postPoll',
+                    'poll',
+                )
+
+                .innerJoin(
+                    'poll.post',
+                    'post',
+                )
+
+                .leftJoin(
+                    'option.votes',
+                    'vote',
+                )
+
+                .addSelect(
+                    'COUNT(DISTINCT vote.id)',
+                    'voteCount',
+                )
+
+                .addSelect(
+                    'poll.id',
+                    'pollId',
+                )
+
+                .addSelect(
+                    'post.id',
+                    'postId',
+                )
+
+                .where(
+                    'post.id IN (:...postIds)',
+                    { postIds },
+                )
+
+                .groupBy('option.id')
+                .addGroupBy('poll.id')
+                .addGroupBy('post.id')
+
+                .orderBy(
+                    'option.position',
+                    'ASC',
+                )
+
+                .getRawAndEntities()
+            : {
+                entities: [],
+                raw: [],
+            };
+
+
+        // Current User Poll Vote's
+        const userVotes = postIds.length
+            ? await this.postPollVoteRepository.find({
+                where: {
+                    user: {
+                        id: userId,
+                    },
+                    poll: {
+                        post: {
+                            id: In(postIds),
+                        },
+                    },
+                },
+                relations: {
+                    option: true,
+                    poll: true,
+                },
+            })
+            : [];
+
+        const votedOptionByPoll =
+            new Map(
+                userVotes.map((vote) => [
+                    vote.poll.id,
+                    vote.option.id,
+                ]),
+            );
+
+        const pollByPost =
+            new Map<string, PollResult>();
+
+        pollsRaw.entities.forEach(
+            (option, index) => {
+                const rawData =
+                    pollsRaw.raw[index];
+
+                const postId =
+                    rawData.postId;
+
+                const pollId =
+                    rawData.pollId;
+
+                const existing: PollResult =
+                    pollByPost.get(postId) ?? {
+                        id: pollId,
+                        options: [],
+                    };
+
+                existing.options.push({
+                    id: option.id,
+                    text: option.text,
+                    position: option.position,
+                    voteCount:
+                        Number(rawData.voteCount),
+                    isSelected:
+                        votedOptionByPoll.get(
+                            pollId,
+                        ) === option.id,
+                });
+
+                pollByPost.set(
+                    postId,
+                    existing,
+                );
+            },
+        );
+
+
+        const transformedPosts =
+            entities.map((post, index) => {
+                const postAttachments =
+                    attachmentsByPost.get(
+                        post.id,
+                    ) ?? [];
+
+                return {
+                    id: post.id,
+                    title: post.title,
+                    content: post.content,
+                    type: post.type,
+                    createdAt: post.createdAt,
+
+                    author: {
+                        id: post.user.id,
+                        name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
+                        exam:
+                            post.user.profile.exam
+                                ?.name ?? null,
+                    },
+
+                    helpfulCount:
+                        Number(
+                            raw[index].helpfulCount,
+                        ),
+
+                    replyCount:
+                        Number(
+                            raw[index].replyCount,
+                        ),
+
+                    isSaved:
+                        raw[index].isSaved === true ||
+                        raw[index].isSaved === 'true',
+
+                    isHelpful:
+                        raw[index].isHelpful === true ||
+                        raw[index].isHelpful === 'true',
+
+                    hashtags:
+                        hashtagsByPost.get(
+                            post.id,
+                        ) ?? [],
+
+                    poll:
+                        pollByPost.get(
+                            post.id,
+                        ) ?? null,
+
+                    attachments:
+                        postAttachments.map(
+                            (attachment) => ({
+                                id: attachment.id,
+                                type: attachment.type,
+                                fileName:
+                                    attachment.fileName,
+                                mimeType:
+                                    attachment.mimeType,
+                                fileSize:
+                                    attachment.fileSize,
+                                url: attachment.url,
+                            }),
+                        ),
+                };
+            });
+
+        const total =
+            await this.postRepository.count({
+                where: {
+                    user: {
+                        id: userId,
+                    },
+                    type: PostType.POST,
+                    isDeleted: false,
+                },
+            });
+
+        return {
+            data: {
+                posts: transformedPosts,
+            },
+
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(
+                    total / limit,
+                ),
+            },
+        };
+    }
+
+    async getMyQuestions( userId: string, query: PaginationQueryDto ) {
+        const { page, limit } = query;
+        const skip = (page - 1) * limit;
+
+        const queryBuilder = this.postRepository
+            .createQueryBuilder('post')
+
+            .leftJoinAndSelect('post.user', 'user')
+            .leftJoinAndSelect('user.profile', 'profile')
+            .leftJoinAndSelect('profile.exam', 'exam')
+
+            .leftJoin(
+                'post.reactions',
+                'reaction',
+                'reaction.type = :reactionType',
+                {
+                    reactionType: ReactionType.HELPFUL,
+                },
+            )
+
+            .leftJoin(
+                'post.answers',
+                'answer',
+                'answer.isDeleted = :isDeleted',
+                {
+                    isDeleted: false,
+                },
+            )
+
+            .where('post.isDeleted = :isDeleted', {
+                isDeleted: false,
+            })
+
+            .andWhere('post.type = :type', {
+                type: PostType.QUESTION,
+            })
+
+            // Only questions created by current user
+            .andWhere('user.id = :userId', {
+                userId,
+            })
+
+            .addSelect(
+                'COUNT(DISTINCT reaction.id)',
+                'upvoteCount',
+            )
+
+            .addSelect(
+                'COUNT(DISTINCT answer.id)',
+                'answerCount',
+            )
+
+            .addSelect(
+                `
+            EXISTS (
+                SELECT 1
+                FROM post_reactions user_reaction
+                WHERE user_reaction."postId" = post.id
+                AND user_reaction."userId" = :userId
+                AND user_reaction.type = :reactionType
+            )
+            `,
+                'isUpvoted',
+            )
+
+            .addSelect(
+                `
+            EXISTS (
+                SELECT 1
+                FROM post_saves user_save
+                WHERE user_save."postId" = post.id
+                AND user_save."userId" = :userId
+            )
+            `,
+                'isSaved',
+            )
+
+            .addSelect(
+                `
+            EXISTS (
+                SELECT 1
+                FROM question_answers qa
+                WHERE qa."postId" = post.id
+                AND qa."isAccepted" = true
+            )
+            `,
+                'hasAcceptedAnswer',
+            )
+
+            .setParameter('userId', userId)
+            .setParameter(
+                'reactionType',
+                ReactionType.HELPFUL,
+            )
+
+            .orderBy('post.createdAt', 'DESC')
+
+            .groupBy('post.id')
+            .addGroupBy('user.id')
+            .addGroupBy('profile.id')
+            .addGroupBy('exam.id')
+
+            .skip(skip)
+            .take(limit);
+
+        const { entities, raw } =
+            await queryBuilder.getRawAndEntities();
+
+        const postIds = entities.map(
+            (post) => post.id,
+        );
+
+
+        // Hashtags
+        const postsWithHashtags = postIds.length
+            ? await this.postRepository.find({
+                where: {
+                    id: In(postIds),
+                },
+                relations: {
+                    hashtags: true,
+                },
+            })
+            : [];
+
+        const hashtagsByPost = new Map(
+            postsWithHashtags.map((post) => [
+                post.id,
+                post.hashtags.map((hashtag) => ({
+                    id: hashtag.id,
+                    name: hashtag.name,
+                })),
+            ]),
+        );
+
+        const transformedQuestions = entities.map(
+            (post, index) => ({
+                id: post.id,
+                title: post.title,
+                content: post.content,
+                type: post.type,
+                createdAt: post.createdAt,
+
+                author: {
+                    id: post.user.id,
+                    name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
+                    exam:
+                        post.user.profile.exam?.name ??
+                        null,
+                },
+
+                upvoteCount:
+                    Number(raw[index].upvoteCount),
+
+                isUpvoted:
+                    raw[index].isUpvoted === true ||
+                    raw[index].isUpvoted === 'true',
+
+                isSaved:
+                    raw[index].isSaved === true ||
+                    raw[index].isSaved === 'true',
+
+                answerCount:
+                    Number(raw[index].answerCount),
+
+                hasAcceptedAnswer:
+                    raw[index].hasAcceptedAnswer === true ||
+                    raw[index].hasAcceptedAnswer === 'true',
+
+                hashtags:
+                    hashtagsByPost.get(post.id) ?? [],
+            }),
+        );
+
+
+        const total =
+            await this.postRepository.count({
+                where: {
+                    user: {
+                        id: userId,
+                    },
+                    isDeleted: false,
+                    type: PostType.QUESTION,
+                },
+            });
+
+        return {
+            data: {
+                questions: transformedQuestions,
+            },
+
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(
+                    total / limit,
+                ),
             },
         };
     }

@@ -434,7 +434,8 @@ export class PostService {
 
         const total = await this.postRepository.count({
             where: {
-                isDeleted: false
+                isDeleted: false,
+                type:PostType.POST
             }
         });
 

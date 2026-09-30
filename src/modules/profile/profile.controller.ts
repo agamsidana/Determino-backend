@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -9,6 +9,7 @@ import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { CreateAvatarUploadDto } from './dto/create-avatar-upload.dto';
 import { ConfirmAvatarUploadDto } from './dto/confirm-avatar-upload.dto';
+import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 
 
 @ApiBearerAuth()
@@ -26,6 +27,16 @@ export class ProfileController {
     @Patch('me')
     async updateMyProfile(@CurrentUser() user:UserEntity,@Body() dto:UpdateMyProfileDto){
         return await this.profileService.updateMyProfile(user.id,dto);
+    }
+
+    @Get('me/post')
+    async getMyPosts(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
+        return await this.profileService.getMyPosts(user.id, query);
+    }
+
+    @Get('me/question')
+    async getMyQuestions(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
+        return await this.profileService.getMyQuestions(user.id,query);
     }
 
     @Patch()
