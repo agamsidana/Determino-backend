@@ -34,9 +34,19 @@ export class ProfileController {
         return await this.profileService.getMyPosts(user.id, query);
     }
 
+    @Get('me/saved-post')
+    async getMySavedPosts(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
+        return this.profileService.getMySavedPosts(user.id,query);
+    }
+
     @Get('me/question')
     async getMyQuestions(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
         return await this.profileService.getMyQuestions(user.id,query);
+    }
+
+    @Get('me/saved-question')
+    async getMySavedQuestions(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
+        return await this.profileService.getMySavedQuestions(user.id,query);
     }
 
     @Patch()

@@ -14,9 +14,10 @@ import { PostEntity } from '../post/entities/post.entity';
 import { PostAttachmentEntity } from '../post/entities/post-attachment.entity';
 import { PostPollOptionEntity } from '../post/entities/post-poll-option.entity';
 import { PostPollVoteEntity } from '../post/entities/post-poll-vote.entity';
+import { PostSaveEntity } from '../post/entities/post-save.entity';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([ProfileEntity,UserEntity,AvatarUploadEntity,PostEntity,PostAttachmentEntity,PostPollOptionEntity,PostPollVoteEntity]),ExamModule,GoalModule,ConnectionModule,StudySessionModule,PostModule],
+  imports:[TypeOrmModule.forFeature([ProfileEntity,UserEntity,AvatarUploadEntity,PostEntity,PostAttachmentEntity,PostPollOptionEntity,PostPollVoteEntity,PostSaveEntity]),ExamModule,GoalModule,ConnectionModule,StudySessionModule,PostModule],
   providers: [ProfileService],
   controllers: [ProfileController],
   exports:[ProfileService]
