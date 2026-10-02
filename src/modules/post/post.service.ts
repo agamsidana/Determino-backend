@@ -434,7 +434,8 @@ export class PostService {
 
         const total = await this.postRepository.count({
             where: {
-                isDeleted: false
+                isDeleted: false,
+                type:PostType.POST
             }
         });
 
@@ -529,6 +530,26 @@ export class PostService {
         return [...existing, ...created];
 
     }
+
+    async getTotalPosts(userId: string): Promise<number> {
+        return this.postRepository.count({
+            where: {
+                user: { id: userId },
+                type: PostType.POST,
+                isDeleted: false,
+            },
+        });
+    }
+
+    async getTotalDoubts(userId: string): Promise<number> {
+        return this.postRepository.count({
+            where: {
+                user: { id: userId },
+                type: PostType.QUESTION,
+                isDeleted: false,
+            },
+        });
+}
 
     private async createPoll(manager: EntityManager, postId: string, dto: PollInputDto) {
 

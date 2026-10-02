@@ -8,6 +8,7 @@ import { ChallengeModule } from '../challenge/challenge.module';
 @Module({
   imports: [TypeOrmModule.forFeature([StudySessionEntity]),ChallengeModule],
   providers: [StudySessionService],
-  controllers: [StudySessionController]
+  controllers: [StudySessionController],
+  exports:[StudySessionService]
 })
 export class StudySessionModule { }

@@ -34,7 +34,6 @@ export class GroupController {
 
     @Get(':groupId/presence')
     async getGroupPresence(@Param('groupId') groupId:string,@CurrentUser() user:UserEntity){
-        console.log('entered');
         return await this.groupService.getGroupPresence(groupId,user.id);
     }
 

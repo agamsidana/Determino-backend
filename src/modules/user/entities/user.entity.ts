@@ -3,6 +3,7 @@ import { ChallengeProgressEntity } from "src/modules/challenge/entities/challeng
 import { QuizAttemptEntity } from "src/modules/challenge/entities/quiz-attempt.entity";
 import { ConversationParticipantEntity } from "src/modules/chat/entities/conversation-participant.entity";
 import { MessageEntity } from "src/modules/chat/entities/message.entity";
+import { PrepMateConnectionEntity } from "src/modules/connection/entities/prepmate-connection.entity";
 import { GroupMemberEntity } from "src/modules/group/entities/group-member.entity";
 import { GroupEntity } from "src/modules/group/entities/group.entity";
 import { AnswerVoteEntity } from "src/modules/post/entities/answer-vote.entity";
@@ -121,5 +122,18 @@ export class UserEntity {
 
     @OneToMany(()=>QuizAttemptEntity,(quizAttempt)=>quizAttempt.user)
     quizAttempts!:QuizAttemptEntity[];
+
+    @OneToMany(()=>PrepMateConnectionEntity,(prepMateConnection)=>prepMateConnection.userLow)
+    prepmateConnectionsAsLowUser!: PrepMateConnectionEntity[];
+
+    @OneToMany(()=>PrepMateConnectionEntity,(prepMateConnection)=>prepMateConnection.userHigh)
+    prepmateConnectionsAsHighUser!: PrepMateConnectionEntity[];
+
+    @OneToMany(()=>PrepMateConnectionEntity,(prepMateConnection)=>prepMateConnection.requester)
+    prepmateRequestsSent!:PrepMateConnectionEntity[];
+
+    @OneToMany(()=>PrepMateConnectionEntity,(prepMateConnection)=>prepMateConnection.receiver)
+    prepmateRequestsReceived!:PrepMateConnectionEntity[];
+
 
 }

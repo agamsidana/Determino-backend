@@ -1,12 +1,14 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { MessageEntity } from './entities/message.entity';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ConversationParticipantEntity } from './entities/conversation-participant.entity';
 import { UserEntity } from '../user/entities/user.entity';
 import { SystemEventType } from './enums/systemEvent-type.enum';
 import { MessageType } from './enums/message-type.enum';
+import { ConversationType } from './enums/conversation-type.enum';
+import { DirectChatQueryDto } from './dto/direct-chat-query.dto';
 
 @Injectable()
 export class ChatService {
@@ -25,6 +27,9 @@ export class ChatService {
                 user: {
                     id: sender.id
                 }
+            },
+            relations:{
+                conversation:true
             }
         });
 
@@ -53,9 +58,331 @@ export class ChatService {
                 sender: {
                     id: sender.id,
                     name: `${sender.profile.firstName} ${sender.profile.lastName}`
-                }
+                },
+                conversationType: participant.conversation.type,
             }
         }
+
+    }
+
+    async markConversationAsRead(userId: string, conversationId: string) {
+
+        const participant = await this.conversationParticipantRepository.findOne({
+            where: {
+                conversation: {
+                    id: conversationId,
+                },
+                user: {
+                    id: userId,
+                },
+            },
+        });
+
+        if (!participant) {
+            throw new ForbiddenException(
+                'You are not a participant in this conversation',
+            );
+        }
+
+        participant.lastReadAt = new Date();
+
+        await this.conversationParticipantRepository.save(participant);
+
+        return {
+            data: {
+                conversationId,
+                lastReadAt: participant.lastReadAt,
+            },
+        };
+    }
+
+    async getDirectChat(userId: string, query: DirectChatQueryDto) {
+
+        const { limit, lastActivityAt, conversationId } = query;
+
+
+        //lastActivityAt: latest message time if conversation has messages , conversation.createdAt if it has no messages
+        const lastActivityExpression = `
+                    COALESCE(
+                        (
+                            SELECT m."createdAt"
+                            FROM messages m
+                            WHERE m."conversationId" = conversation.id
+                            ORDER BY m."createdAt" DESC
+                            LIMIT 1
+                        ),
+                        conversation."createdAt"
+                    )
+                `;
+
+        // 1. Get conversations belonging to the current user
+        const conversationQuery = this.conversationParticipantRepository
+            .createQueryBuilder('participant')
+            .innerJoin(
+                'participant.conversation',
+                'conversation',
+            )
+            .select(
+                'conversation.id',
+                'conversationId',
+            )
+            .addSelect(
+                lastActivityExpression,
+                'lastActivityAt',
+            )
+            .where(
+                'participant.user.id = :userId',
+                { userId },
+            )
+            .andWhere(
+                'conversation.type = :type',
+                {
+                    type: ConversationType.DIRECT,
+                },
+            );
+
+
+        //2. Cursor condition Ordering: lastActivityAt DESC conversationId DESC The next page starts AFTER the cursor position.
+        if (lastActivityAt && conversationId) {
+            conversationQuery.andWhere(
+                `(
+                ${lastActivityExpression} < :cursorDate
+                OR (
+                    ${lastActivityExpression} = :cursorDate
+                    AND conversation.id < :cursorConversationId
+                )
+            )`,
+                {
+                    cursorDate: lastActivityAt,
+                    cursorConversationId: conversationId,
+                },
+            );
+        }
+
+
+        // 3. Order + fetch one extra
+        const conversations = await conversationQuery
+            .orderBy(
+                lastActivityExpression,
+                'DESC',
+            )
+            .addOrderBy(
+                'conversation.id',
+                'DESC',
+            )
+            .take(limit + 1)
+            .getRawMany();
+
+
+        // 4. Pagination information
+        const hasMore =
+            conversations.length > limit;
+
+        const pageConversations =
+            conversations.slice(0, limit);
+
+        if (!pageConversations.length) {
+            return {
+                data: [],
+                pagination: {
+                    hasMore: false,
+                    nextCursor: null,
+                },
+            };
+        }
+
+        // 5. Get conversation IDs for this page
+        const conversationIds = pageConversations.map((conversation) => conversation.conversationId);
+
+        // 6. Get UnreadCount For the loaded Conversation
+        const unreadCounts = await this.messageRepository
+            .createQueryBuilder('message')
+            .innerJoin(
+                'message.conversation',
+                'conversation',
+            )
+            .innerJoin(
+                ConversationParticipantEntity,
+                'participant',
+                `
+            participant."conversationId" = conversation.id
+            AND participant."userId" = :userId
+        `,
+                { userId },
+            )
+            .where(
+                'conversation.id IN (:...conversationIds)',
+                { conversationIds },
+            )
+            .andWhere(
+                'message.sender.id != :userId',
+                { userId },
+            )
+            .andWhere(
+                'message.isDeleted = false',
+            )
+            .andWhere(
+                `
+        (
+            participant."lastReadAt" IS NULL
+            OR message."createdAt" > participant."lastReadAt"
+        )
+        `,
+            )
+            .select(
+                'conversation.id',
+                'conversationId',
+            )
+            .addSelect(
+                'COUNT(message.id)',
+                'unreadCount',
+            )
+            .groupBy('conversation.id')
+            .getRawMany();
+
+            const unreadCountMap = new Map(unreadCounts.map((item) => [item.conversationId,Number(item.unreadCount)]));
+
+
+
+        // 7.. Get participants of ONLY these conversations
+        const participants = await this.conversationParticipantRepository.find({
+            where: {
+                conversation: {
+                    id: In(conversationIds),
+                },
+            },
+            relations: {
+                user: {
+                    profile: true,
+                },
+                conversation: true,
+            },
+        });
+
+        // 8. Get the latest message for every conversation
+        const latestMessages = await this.messageRepository
+            .createQueryBuilder('message')
+            .innerJoinAndSelect('message.conversation', 'conversation')
+            .where('conversation.id IN (:...conversationIds)', { conversationIds })
+            .orderBy('conversation.id', 'ASC')
+            .addOrderBy('message.createdAt', 'DESC')
+            .distinctOn(['conversation.id'])
+            .getMany();
+
+        // 9. Create participant lookup conversationId -> other user
+        const otherUserMap =
+            new Map<string, UserEntity>();
+
+        for (const participant of participants) {
+            if (participant.user.id === userId) {
+                continue;
+            }
+
+            otherUserMap.set(
+                participant.conversation.id,
+                participant.user,
+            );
+        }
+
+
+        // 10. Create latest-message lookup conversationId -> latest message
+        const latestMessageMap =
+            new Map<string, MessageEntity>();
+
+        for (const message of latestMessages) {
+            latestMessageMap.set(
+                message.conversation.id,
+                message,
+            );
+        }
+
+        //11. Build response
+        const data = pageConversations.map(
+            (conversation) => {
+                const conversationId =
+                    conversation.conversationId;
+
+                const otherUser =
+                    otherUserMap.get(
+                        conversationId,
+                    );
+
+                if (!otherUser) {
+                    throw new InternalServerErrorException(
+                        `Direct conversation ${conversationId} has no other participant`,
+                    );
+                }
+
+                const latestMessage =
+                    latestMessageMap.get(
+                        conversationId,
+                    );
+
+                return {
+                    conversationId,
+
+                    user: {
+                        id: otherUser.id,
+                        firstName:
+                            otherUser.profile.firstName,
+                        lastName:
+                            otherUser.profile.lastName,
+                        avatar:
+                            otherUser.profile.avatar,
+                    },
+
+                    lastMessage:
+                        latestMessage
+                            ? {
+                                id:
+                                    latestMessage.id,
+
+                                content:
+                                    latestMessage.isDeleted
+                                        ? null
+                                        : latestMessage.content,
+
+                                createdAt:
+                                    latestMessage.createdAt,
+
+                                isDeleted:
+                                    latestMessage.isDeleted,
+
+                                type:
+                                    latestMessage.type,
+                            }
+                            : null,
+
+                    unreadCount: unreadCountMap.get(conversationId) ?? 0,
+                };
+            },
+        );
+
+        // 12. Cursor for the next request
+        const lastConversation =
+            pageConversations[
+            pageConversations.length - 1
+            ];
+
+        const nextCursor = hasMore
+            ? {
+                lastActivityAt:
+                    lastConversation.lastActivityAt,
+
+                conversationId:
+                    lastConversation.conversationId,
+            }
+            : null;
+
+        //13. Final response
+        return {
+            data,
+
+            pagination: {
+                hasMore,
+                nextCursor,
+            },
+        };
 
     }
 

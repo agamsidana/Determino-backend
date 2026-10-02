@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
-import { UploadMimeType } from "../enums/upload-mime-type.enum";
+import { UploadMimeType } from "../../../shared/enums/upload-mime-type.enum";
 import { PostAttachmentType } from "../enums/post-attachment-type.enum";
 
 

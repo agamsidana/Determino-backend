@@ -1,7 +1,7 @@
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { PostAttachmentType } from "../enums/post-attachment-type.enum";
 import { PostEntity } from "./post.entity";
-import { UploadMimeType } from "../enums/upload-mime-type.enum";
+import { UploadMimeType } from "../../../shared/enums/upload-mime-type.enum";
 
 @Entity({name : 'post_attachments'})
 export class PostAttachmentEntity {

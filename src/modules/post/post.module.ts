@@ -27,6 +27,7 @@ import { ChallengeModule } from '../challenge/challenge.module';
 @Module({
   imports:[TypeOrmModule.forFeature([PostEntity,PostReactionEntity,HashTagEntity,PostAttachmentEntity,PostUploadEntity,PostPollEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentEntity,PostSaveEntity,ProfileEntity,PostPollOptionEntity,PostPollVoteEntity,PostCommentLikeEntity,QuestionAnswerEntity,AnswerVoteEntity]),ChallengeModule],
   providers: [PostService,PostReactionService,PostAttachmentService,PostPollService,PostCommentService,PostSaveService,QuestionService],
-  controllers: [PostController]
+  controllers: [PostController],
+  exports:[PostService]
 })
 export class PostModule {}

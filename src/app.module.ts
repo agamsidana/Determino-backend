@@ -18,6 +18,7 @@ import { GroupModule } from './modules/group/group.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { MailModule } from './modules/mail/mail.module';
 import { ChallengeModule } from './modules/challenge/challenge.module';
+import { ConnectionModule } from './modules/connection/connection.module';
 
 @Module({
   imports: [
@@ -51,8 +52,8 @@ import { ChallengeModule } from './modules/challenge/challenge.module';
     GroupModule,
     ChatModule,
     MailModule,
-    ChallengeModule
-
+    ChallengeModule,
+    ConnectionModule
   ],
   controllers: [],
   providers: [{
