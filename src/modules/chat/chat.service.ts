@@ -27,6 +27,9 @@ export class ChatService {
                 user: {
                     id: sender.id
                 }
+            },
+            relations:{
+                conversation:true
             }
         });
 
@@ -55,10 +58,42 @@ export class ChatService {
                 sender: {
                     id: sender.id,
                     name: `${sender.profile.firstName} ${sender.profile.lastName}`
-                }
+                },
+                conversationType: participant.conversation.type,
             }
         }
 
+    }
+
+    async markConversationAsRead(userId: string, conversationId: string) {
+
+        const participant = await this.conversationParticipantRepository.findOne({
+            where: {
+                conversation: {
+                    id: conversationId,
+                },
+                user: {
+                    id: userId,
+                },
+            },
+        });
+
+        if (!participant) {
+            throw new ForbiddenException(
+                'You are not a participant in this conversation',
+            );
+        }
+
+        participant.lastReadAt = new Date();
+
+        await this.conversationParticipantRepository.save(participant);
+
+        return {
+            data: {
+                conversationId,
+                lastReadAt: participant.lastReadAt,
+            },
+        };
     }
 
     async getDirectChat(userId: string, query: DirectChatQueryDto) {
@@ -159,8 +194,57 @@ export class ChatService {
         // 5. Get conversation IDs for this page
         const conversationIds = pageConversations.map((conversation) => conversation.conversationId);
 
+        // 6. Get UnreadCount For the loaded Conversation
+        const unreadCounts = await this.messageRepository
+            .createQueryBuilder('message')
+            .innerJoin(
+                'message.conversation',
+                'conversation',
+            )
+            .innerJoin(
+                ConversationParticipantEntity,
+                'participant',
+                `
+            participant."conversationId" = conversation.id
+            AND participant."userId" = :userId
+        `,
+                { userId },
+            )
+            .where(
+                'conversation.id IN (:...conversationIds)',
+                { conversationIds },
+            )
+            .andWhere(
+                'message.sender.id != :userId',
+                { userId },
+            )
+            .andWhere(
+                'message.isDeleted = false',
+            )
+            .andWhere(
+                `
+        (
+            participant."lastReadAt" IS NULL
+            OR message."createdAt" > participant."lastReadAt"
+        )
+        `,
+            )
+            .select(
+                'conversation.id',
+                'conversationId',
+            )
+            .addSelect(
+                'COUNT(message.id)',
+                'unreadCount',
+            )
+            .groupBy('conversation.id')
+            .getRawMany();
 
-        // 6. Get participants of ONLY these conversations
+            const unreadCountMap = new Map(unreadCounts.map((item) => [item.conversationId,Number(item.unreadCount)]));
+
+
+
+        // 7.. Get participants of ONLY these conversations
         const participants = await this.conversationParticipantRepository.find({
             where: {
                 conversation: {
@@ -175,7 +259,7 @@ export class ChatService {
             },
         });
 
-        // 7. Get the latest message for every conversation
+        // 8. Get the latest message for every conversation
         const latestMessages = await this.messageRepository
             .createQueryBuilder('message')
             .innerJoinAndSelect('message.conversation', 'conversation')
@@ -185,7 +269,7 @@ export class ChatService {
             .distinctOn(['conversation.id'])
             .getMany();
 
-        // 8. Create participant lookup conversationId -> other user
+        // 9. Create participant lookup conversationId -> other user
         const otherUserMap =
             new Map<string, UserEntity>();
 
@@ -201,7 +285,7 @@ export class ChatService {
         }
 
 
-        // 9. Create latest-message lookup conversationId -> latest message
+        // 10. Create latest-message lookup conversationId -> latest message
         const latestMessageMap =
             new Map<string, MessageEntity>();
 
@@ -212,7 +296,7 @@ export class ChatService {
             );
         }
 
-        //10. Build response
+        //11. Build response
         const data = pageConversations.map(
             (conversation) => {
                 const conversationId =
@@ -268,11 +352,13 @@ export class ChatService {
                                     latestMessage.type,
                             }
                             : null,
+
+                    unreadCount: unreadCountMap.get(conversationId) ?? 0,
                 };
             },
         );
 
-        // 11. Cursor for the next request
+        // 12. Cursor for the next request
         const lastConversation =
             pageConversations[
             pageConversations.length - 1
@@ -288,7 +374,7 @@ export class ChatService {
             }
             : null;
 
-        //12. Final response
+        //13. Final response
         return {
             data,
 

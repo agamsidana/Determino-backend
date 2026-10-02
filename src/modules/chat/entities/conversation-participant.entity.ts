@@ -1,4 +1,4 @@
-import { CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
+import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
 import { ConversationEntity } from "./conversation.entity";
 import { UserEntity } from "src/modules/user/entities/user.entity";
 
@@ -12,6 +12,9 @@ export class ConversationParticipantEntity{
 
     @CreateDateColumn()
     joinedAt!: Date;
+
+    @Column({ type: 'timestamptz', nullable: true })
+    lastReadAt!: Date | null;
 
     @ManyToOne(()=>ConversationEntity,(conversation)=>conversation.participants,{
         onDelete:'CASCADE',

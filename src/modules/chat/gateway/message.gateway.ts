@@ -9,6 +9,8 @@ import { ChatService } from "../chat.service";
 import { UserEntity } from "src/modules/user/entities/user.entity";
 import { configuration } from "src/config/configuration";
 import { PresenceService } from "../presence.service";
+import { MessageEntity } from "../entities/message.entity";
+import { ConversationType } from "../enums/conversation-type.enum";
 
 
 @WebSocketGateway({ cors: true })
@@ -21,7 +23,7 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
     constructor(private readonly jwtService: JwtService, @InjectRepository(ConversationParticipantEntity)
     private readonly conversationParticipantRepository: Repository<ConversationParticipantEntity>, private readonly chatService: ChatService,
-        @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>,private readonly presenceService:PresenceService) { }
+        @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>,@InjectRepository(MessageEntity) private readonly messageRepository:Repository<MessageEntity>, private readonly presenceService:PresenceService) { }
 
     @SubscribeMessage('joinConversation')
     async handleJoinConversation(@ConnectedSocket() client: Socket, @MessageBody() conversationId: string) {
@@ -53,11 +55,34 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
         }
     }
 
+    @SubscribeMessage('markConversationRead')
+    async handleMarkConversationRead(@ConnectedSocket() client: Socket,@MessageBody() conversationId:string){
+        
+        const user = client.data.user;
+
+        try{
+            const result = await this.chatService.markConversationAsRead(user.id,conversationId);
+
+            this.logger.log(`marked coversation as read ${conversationId} for user ${user.id}`)
+
+            return {
+                success:true,
+                ...result
+            }
+        }
+        catch(err:any){
+            client.emit('markConversationReadError', { message: err.message});
+
+        }
+
+    }
+
     @SubscribeMessage('sendMessage')
-    async handleSendMessage(@ConnectedSocket() client: Socket, @MessageBody() data: { conversationId: string, content: string, messageId:string }) {
+    async handleSendMessage(@ConnectedSocket() client: Socket, @MessageBody() data: { conversationId: string, content: string, messageId: string }) {
 
         const user = client.data?.user;
-        const { conversationId, content,messageId } = data;
+        const { conversationId, content, messageId } = data;
+
 
         try {
             const message = await this.chatService.sendMessage(
@@ -67,14 +92,37 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
             );
 
             client.to(`conversation:${conversationId}`).emit('newMessage', message.data);
-            
-            return{
-                success:true,
-                messageId:message.data.id
+
+            if (message.data.conversationType === ConversationType.DIRECT) {
+
+                const conversationUpdate =
+                    await this.buildDirectConversationUpdate(
+                        conversationId,
+                        user,
+                        message.data,
+                    );
+
+
+                if (conversationUpdate) {
+                    this.server
+                        .to(`user:${conversationUpdate.data.recipientId}`)
+                        .emit(
+                            'conversationUpdated',
+                            conversationUpdate,
+                        );
+                }
+
+                this.logger.log(`coversation updated even hit ${user.id} for the coversation ${conversationId}`)
+            }
+
+            return {
+                success: true,
+                messageId: message.data.id
             }
         }
         catch (err: any) {
-            client.emit('sendMessageError', { success:false,messageId });
+            console.log(err);
+            client.emit('sendMessageError', { success: false, messageId });
         }
 
     }
@@ -159,6 +207,11 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
             client.data.user = user;
 
+            // Personal room for this user
+            client.join(`user:${user.id}`);
+
+            this.logger.log(`Socket ${client.id} joined user:${user.id}`);
+
             const becameOnline = this.presenceService.userConnected(user.id);
 
 
@@ -238,6 +291,92 @@ export class MessageGateway implements OnGatewayConnection, OnGatewayDisconnect 
         const conversationIds = participants.map( (participant) => participant.conversation.id);
 
         return conversationIds
+    }
+
+    private async buildDirectConversationUpdate(
+        conversationId: string,
+        sender: UserEntity,
+        message: any,
+    ) {
+        const participants =
+            await this.conversationParticipantRepository.find({
+                where: {
+                    conversation: {
+                        id: conversationId,
+                    },
+                },
+                relations: {
+                    user: {
+                        profile: true,
+                    },
+                },
+            });
+
+        const recipient = participants.find(
+            participant =>
+                participant.user.id !== sender.id,
+        );
+
+        if (!recipient) {
+            return null;
+        }
+
+        const unreadCount =
+            await this.messageRepository
+                .createQueryBuilder('message')
+                .where(
+                    'message.conversationId = :conversationId',
+                    { conversationId },
+                )
+                .andWhere(
+                    'message.senderId != :recipientId',
+                    {
+                        recipientId: recipient.user.id,
+                    },
+                )
+                .andWhere(
+                    'message.isDeleted = false',
+                )
+                .andWhere(
+                    `
+            (
+                CAST(:lastReadAt AS timestamptz) IS NULL
+                OR message.createdAt > CAST(:lastReadAt AS timestamptz)
+            )
+            `,
+                    {
+                        lastReadAt: recipient.lastReadAt,
+                    },
+                )
+                .getCount();
+
+        return {
+            data: {
+                recipientId: recipient.user.id,
+                conversationId,
+
+                user: {
+                    id: sender.id,
+                    firstName:
+                        sender.profile.firstName,
+                    lastName:
+                        sender.profile.lastName,
+                    avatar:
+                        sender.profile.avatar,
+                },
+
+                lastMessage: {
+                    id: message.id,
+                    content: message.isDeleted
+                        ? null
+                        : message.content,
+                    createdAt: message.createdAt,
+                    isDeleted: message.isDeleted
+                },
+
+                unreadCount,
+            }
+        };
     }
 
 }
