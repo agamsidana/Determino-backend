@@ -377,4 +377,20 @@ export class ConnectionService {
             .getCount();
     }
 
+    async getConnectionBetweenUsers( userId1: string, userId2: string ) {
+        
+        const { userLowId, userHighId } = this.getCanonicalPair(userId1, userId2);
+
+        return this.prepMateConnectionRepository.findOne({
+            where: {
+                userLow: {
+                    id: userLowId,
+                },
+                userHigh: {
+                    id: userHighId,
+                },
+            },
+        });
+    }
+
 }

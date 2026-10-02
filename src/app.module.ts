@@ -19,6 +19,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { MailModule } from './modules/mail/mail.module';
 import { ChallengeModule } from './modules/challenge/challenge.module';
 import { ConnectionModule } from './modules/connection/connection.module';
+import { DiscoverModule } from './modules/discover/discover.module';
 
 @Module({
   imports: [
@@ -53,7 +54,8 @@ import { ConnectionModule } from './modules/connection/connection.module';
     ChatModule,
     MailModule,
     ChallengeModule,
-    ConnectionModule
+    ConnectionModule,
+    DiscoverModule
   ],
   controllers: [],
   providers: [{
