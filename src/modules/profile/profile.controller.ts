@@ -34,6 +34,11 @@ export class ProfileController {
         return await this.profileService.getPostsByUser(profileUserId,viewer.id,query);
     }
 
+    @Get(':userId/question')
+    async getQuestionsByUser(@Param('userId') profileUserId:string,@CurrentUser() viewer:UserEntity,@Query() query:PaginationQueryDto){
+        return await this.profileService.getQuestionsByUser(profileUserId,viewer.id,query);
+    }
+
     @Get(':userId')
     async getPublicProfile(@Param('userId') userId:string,@CurrentUser() user:UserEntity){
         return await this.profileService.getPublicProfile(user.id,userId);
