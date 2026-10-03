@@ -11,6 +11,7 @@ import { QuizEntity } from './entities/quiz.entity';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
 import { QuizAttemptEntity } from './entities/quiz-attempt.entity';
 import { QuizAttemptAnswerEntity } from './entities/quiz-attempt-answer.entity';
+import { CHALLENGE_MESSAGES } from 'src/shared/constants/messages/challenge.messages';
 
 @Injectable()
 export class ChallengeService {
@@ -147,7 +148,7 @@ export class ChallengeService {
         });
 
         if (!challenge) {
-            throw new NotFoundException('challenge not found')
+            throw new NotFoundException(CHALLENGE_MESSAGES.CHALLENGE_NOT_FOUND)
         }
 
         try {
@@ -176,7 +177,7 @@ export class ChallengeService {
                 err.driverError?.code === '23505'
             ) {
                 throw new ConflictException(
-                    'You have already joined this challenge',
+                    CHALLENGE_MESSAGES.ALREADY_JOINED_CHALLENGE,
                 );
             }
 
@@ -195,11 +196,11 @@ export class ChallengeService {
         });
 
         if(!challenge){
-            throw new NotFoundException('challenge not found');
+            throw new NotFoundException(CHALLENGE_MESSAGES.CHALLENGE_NOT_FOUND);
         }
 
         if (challenge.type !== ChallengeType.QUIZ) {
-             throw new BadRequestException('This challenge is not a quiz');
+            throw new BadRequestException(CHALLENGE_MESSAGES.CHALLENGE_NOT_QUIZ);
         }
 
         const today = this.getPeriodStart(ResetPeriod.DAILY);
@@ -230,7 +231,7 @@ export class ChallengeService {
         const quiz = entities[0];
 
         if(!quiz){
-            throw new NotFoundException('Today\'s quiz not found');
+            throw new NotFoundException(CHALLENGE_MESSAGES.TODAY_QUIZ_NOT_FOUND);
         }
 
         const isAttempted = raw[0]?.isAttempted === true || raw[0]?.isAttempted === 'true';
@@ -272,7 +273,7 @@ export class ChallengeService {
         });
 
         if(!attempt){
-            throw new NotFoundException('Quiz attempt not found');
+            throw new NotFoundException(CHALLENGE_MESSAGES.QUIZ_ATTEMPT_NOT_FOUND);
         }
 
         const percentage = Number((attempt.score / attempt.totalQuestions) * 100).toFixed(2);
@@ -323,7 +324,7 @@ export class ChallengeService {
         });
 
         if (!quiz) {
-            throw new NotFoundException('Quiz not found');
+            throw new NotFoundException(CHALLENGE_MESSAGES.QUIZ_NOT_FOUND);
         }
 
         const questionMap = new Map(
@@ -338,11 +339,11 @@ export class ChallengeService {
 
             const question = questionMap.get(ans.questionId);
             if (!question) {
-                throw new BadRequestException('Invalid Question Submitted')
+                throw new BadRequestException(CHALLENGE_MESSAGES.INVALID_QUESTION_SUBMITTED)
             }
 
             if (!validOptions.includes(ans.selectedOption)) {
-                throw new BadRequestException('Invalid option submitted');
+                throw new BadRequestException(CHALLENGE_MESSAGES.INVALID_OPTION_SUBMITTED);
             }
 
             const isCorrect = ans.selectedOption === question.correctOption;
@@ -405,7 +406,7 @@ export class ChallengeService {
                 err.driverError?.code === '23505'
             ) {
                 throw new BadRequestException(
-                    'You have already submitted this quiz',
+                    CHALLENGE_MESSAGES.ALREADY_SUBMITTED_QUIZ,
                 );
             }
 
@@ -514,7 +515,7 @@ export class ChallengeService {
         });
 
         if (!quiz) {
-            throw new NotFoundException("Today's quiz not found");
+            throw new NotFoundException(CHALLENGE_MESSAGES.TODAY_QUIZ_NOT_FOUND);
         }
 
         const attempts = await this.quizAttemptRepository.find({

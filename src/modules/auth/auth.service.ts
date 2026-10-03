@@ -5,7 +5,6 @@ import { AUTH_MESSAGES } from 'src/shared/constants/messages/auth.messages';
 import bcrypt from 'bcrypt';
 import { ProfileService } from '../profile/profile.service';
 import { JwtService } from '@nestjs/jwt';
-import { SignupResponseDto } from './dto/signup-response.dto';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -112,7 +111,7 @@ export class AuthService {
         }
 
         if(!existingUser.isEmailVerified){
-            throw new BadRequestException('Please verify your email before logging in');
+            throw new BadRequestException(AUTH_MESSAGES.VERIFY_EMAIL_BEFORE_LOGIN);
         }
 
         const payload: JwtPayload = {
@@ -168,22 +167,22 @@ export class AuthService {
         }
 
         if (user.isEmailVerified) {
-            throw new BadRequestException('Email is already verified');
+            throw new BadRequestException(AUTH_MESSAGES.EMAIL_ALREADY_VERIFIED);
         }
 
         if (
             !user.emailVerificationCode ||
             !user.emailVerificationCodeExpiresAt
         ) {
-            throw new BadRequestException('Verification code not found');
+            throw new BadRequestException(AUTH_MESSAGES.VERIFICATION_CODE_NOT_FOUND);
         }
 
         if (user.emailVerificationCode !== code) {
-            throw new BadRequestException('Invalid verification code');
+            throw new BadRequestException(AUTH_MESSAGES.INVALID_VERIFICATION_CODE);
         }
 
         if (user.emailVerificationCodeExpiresAt < new Date()) {
-            throw new BadRequestException('Verification code has expired');
+            throw new BadRequestException(AUTH_MESSAGES.VERIFICATION_CODE_EXPIRED);
         }
 
         user.isEmailVerified = true;
@@ -230,7 +229,7 @@ export class AuthService {
         }
 
         if (user.isEmailVerified) {
-            throw new BadRequestException('Email is already verified')
+            throw new BadRequestException(AUTH_MESSAGES.EMAIL_ALREADY_VERIFIED)
         }
 
         const verificationCode = this.generateVerificationCode();
@@ -248,7 +247,7 @@ export class AuthService {
 
         return {
             data: {
-                message: 'Verification code sent successfully',
+                message: AUTH_MESSAGES.VERIFICATION_CODE_SENT,
             },
         };
 
@@ -280,7 +279,7 @@ export class AuthService {
 
         return {
             data: {
-                message: 'Password reset code sent successfully',
+                message: AUTH_MESSAGES.PASSWORD_RESET_CODE_SENT,
             },
         };
 
@@ -300,16 +299,16 @@ export class AuthService {
         !user.passwordResetCode ||
         !user.passwordResetCodeExpiresAt
         ) {
-            throw new BadRequestException('Password reset code not found');
+            throw new BadRequestException(AUTH_MESSAGES.PASSWORD_RESET_CODE_NOT_FOUND);
         }
 
         if (user.passwordResetCode !== code) {
-            throw new BadRequestException('Invalid password reset code');
+            throw new BadRequestException(AUTH_MESSAGES.INVALID_PASSWORD_RESET_CODE);
         }
 
         if (user.passwordResetCodeExpiresAt < new Date()) {
             throw new BadRequestException(
-            'Password reset code has expired',
+            AUTH_MESSAGES.PASSWORD_RESET_CODE_EXPIRED,
             );
         }
 
@@ -324,7 +323,7 @@ export class AuthService {
 
         return {
             data: {
-                message: 'Password reset successfully',
+                message: AUTH_MESSAGES.PASSWORD_RESET_SUCCESSFULL,
             },
         };
 
