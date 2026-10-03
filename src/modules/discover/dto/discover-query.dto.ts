@@ -26,12 +26,18 @@ export class DiscoverQueryDto{
     examId?:string;
 
     @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    search?:string
+
+    @ApiPropertyOptional()
     @Type(()=>Boolean)
     @IsBoolean()
     onlineOnly?:boolean = false;
 
     @ApiPropertyOptional()
+    @IsOptional()
     @IsEnum(Role)
-    sort = Role.ASPIRANT;
+    sort?:Role;
 
 }

@@ -15,7 +15,7 @@ export class DiscoverService {
     
     async getDiscover(userId: string, query: DiscoverQueryDto) {
 
-        const { page, limit, examId, onlineOnly, sort } = query;
+        const { page, limit, examId, onlineOnly, sort, search } = query;
         const skip = (page - 1) * limit;
 
         const baseQb = () => {
@@ -34,6 +34,14 @@ export class DiscoverService {
 
             if (sort) {
                 qb.andWhere('profile.role = :role', { role: sort })
+            }
+
+
+            if (search) {
+                qb.andWhere(
+                    '(profile.firstName ILIKE :search OR profile.lastName ILIKE :search OR exam.name ILIKE :search)',
+                    { search: `%${search}%` },
+                );
             }
 
             return qb;
