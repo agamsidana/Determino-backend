@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,6 +27,11 @@ export class ProfileController {
     @Patch('me')
     async updateMyProfile(@CurrentUser() user:UserEntity,@Body() dto:UpdateMyProfileDto){
         return await this.profileService.updateMyProfile(user.id,dto);
+    }
+
+    @Get(':userId')
+    async getPublicProfile(@Param('userId') userId:string,@CurrentUser() user:UserEntity){
+        return await this.profileService.getPublicProfile(user.id,userId);
     }
 
     @Get('me/post')

@@ -377,11 +377,11 @@ export class ConnectionService {
             .getCount();
     }
 
-    async getConnectionBetweenUsers( userId1: string, userId2: string ) {
-        
-        const { userLowId, userHighId } = this.getCanonicalPair(userId1, userId2);
+    async getConnectionBetweenUsers(viewerId: string, targetUserId: string) {
 
-        return this.prepMateConnectionRepository.findOne({
+        const { userLowId, userHighId } = this.getCanonicalPair(viewerId, targetUserId);
+
+        const conn = await this.prepMateConnectionRepository.findOne({
             where: {
                 userLow: {
                     id: userLowId,
@@ -390,7 +390,25 @@ export class ConnectionService {
                     id: userHighId,
                 },
             },
+            relations: { requester: true }
         });
+
+        if (!conn) {
+            return { status: 'NONE', connectionId: null };
+        }
+
+        if (conn.status === ConnectionStatus.ACCEPTED) {
+            return { status: 'ACCEPTED', connectionId: conn.id };
+        }
+
+        if (conn.status === ConnectionStatus.PENDING) {
+            return {
+                status: conn.requester.id === viewerId ? 'PENDING_SENT' : 'PENDING_RECEIVED',
+                connectionId: conn.id,
+            };
+        }
+
+        return { status: 'NONE', connectionId: null };
     }
 
 }

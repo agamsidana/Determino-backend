@@ -199,6 +199,71 @@ export class ProfileService {
 
     }
 
+    async getPublicProfile(viewerId: string, targetUserId: string) {
+        
+        if (viewerId === targetUserId) {
+            return {
+                success:false,
+                message:'use my profile route'
+            }
+        }
+
+        const user = await this.userRepository.findOne({
+            where: {
+                id: targetUserId
+            },
+            relations: {
+                profile: {
+                    exam: true
+                }
+            }
+        });
+
+        if (!user) {
+            throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const [totalStudyMinutes, totalPosts, totalDoubts, totalPrepMates, connection] = await Promise.all([
+            this.studySessionService.getTotalStudyMinutes(user.id),
+            this.postService.getTotalPosts(user.id),
+            this.postService.getTotalDoubts(user.id),
+            this.connectionService.getTotalPrepMates(user.id),
+            this.connectionService.getConnectionBetweenUsers(viewerId, targetUserId)
+        ]);
+
+        return {
+            data: {
+                id: user.id,
+                createdAt: user.createdAt,
+                profile: {
+                    firstName: user.profile.firstName,
+                    lastName: user.profile.lastName,
+                    role: user.profile.role,
+                    bio: user.profile.bio,
+                    avatar: user.profile.avatar,
+                    exam: user.profile.exam
+                        ? {
+                            id: user.profile.exam.id,
+                            name: user.profile.exam.name
+                        }
+                        : null,
+                },
+                stats: {
+                    totalStudyMinutes,
+                    totalPosts,
+                    totalDoubts,
+                    totalPrepMates
+                },
+
+                connection: {
+                    status: connection.status,
+                    connectionId: connection.connectionId
+                }
+
+            }
+        }
+    }
+
     async updateMyProfile(userId: string, dto: UpdateMyProfileDto) {
 
         const user = await this.userRepository.findOne({
