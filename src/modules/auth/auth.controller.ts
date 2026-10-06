@@ -8,12 +8,12 @@ import { UserEntity } from '../user/entities/user.entity';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { CurrentUserResponseDto } from './dto/current-user-response.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
-import { SignupResponseDto } from './dto/signup-response.dto';
 import { Throttle } from '@nestjs/throttler';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { GoogleAuthDto } from './dto/google-auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -40,6 +40,11 @@ export class AuthController {
     @Post('login')
     async login(@Body() dto: LoginDto): Promise<LoginResponseDto> {
         return await this.authService.login(dto);
+    }
+
+    @Post('google')
+    async loginWithGoogle(@Body() dto: GoogleAuthDto) {
+        return await this.authService.loginWithGoogle(dto.idToken);
     }
 
     @ApiBearerAuth()

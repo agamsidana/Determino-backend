@@ -18,11 +18,18 @@ import { USER_MESSAGES } from 'src/shared/constants/messages/user.messages';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class AuthService {
 
-    constructor(private readonly userService: UserService, private readonly profileService: ProfileService, private readonly jwtService: JwtService, private readonly dataSource: DataSource, private readonly configService: ConfigService, private readonly mailService: MailService) { }
+    private readonly googleClient: OAuth2Client;
+
+    constructor(private readonly userService: UserService, private readonly profileService: ProfileService, private readonly jwtService: JwtService, private readonly dataSource: DataSource, private readonly configService: ConfigService, private readonly mailService: MailService) { 
+        this.googleClient = new OAuth2Client(
+            this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID')
+        )
+    }
 
     async signup(dto: SignUpDto) {
 
@@ -104,6 +111,10 @@ export class AuthService {
             throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
         }
 
+        if (!existingUser.password) {
+            throw new UnauthorizedException(AUTH_MESSAGES.GOOGLE_ACCOUNT_USE_GOOGLE_SIGNIN);
+        }
+
         const isPasswordCorrect = await bcrypt.compare(password, existingUser.password);
 
         if (!isPasswordCorrect) {
@@ -137,6 +148,64 @@ export class AuthService {
             }
 
         }
+
+    }
+
+    async loginWithGoogle(idToken: string): Promise<LoginResponseDto> {
+
+        const payload = await this.verifyGoogleToken(idToken);
+
+        const { sub: googleId, email, given_name, family_name } = payload;
+
+        let user = await this.userService.findUserByGoogleIdOrEmail(googleId, email);
+
+        if (user && !user.googleId) {
+            user.googleId = googleId;
+            user.isEmailVerified = true;
+            await this.userService.saveUser(user)
+        }
+
+        if (!user) {
+
+            const result = await this.dataSource.transaction(async (manager) => {
+                const newUser = await this.userService.createUser({ email, googleId, isEmailVerified: true }, manager);
+
+                await this.profileService.createProfile({
+                    firstName: given_name ?? '',
+                    lastName: family_name ?? '',
+                    user: newUser
+                }, manager);
+
+            })
+
+            user = await this.userService.findUserByGoogleIdOrEmail(googleId, email);
+        }
+
+        if (!user) {
+            throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
+        }
+
+        const jwtPayload: JwtPayload = {
+            sub: user.id,
+            email: user.email,
+        };
+
+        const accessToken = await this.jwtService.signAsync(jwtPayload);
+
+        return {
+            data: {
+                accessToken,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                },
+                profile: {
+                    firstName: user.profile.firstName,
+                    lastName: user.profile.lastName,
+                    role: user.profile.role,
+                },
+            },
+        };
 
     }
 
@@ -335,5 +404,32 @@ export class AuthService {
 
     private getVerificationCodeExpiry(): Date {
         return new Date(Date.now() + 10 * 60 * 1000);
+    }
+
+    private async verifyGoogleToken(idToken:string){
+        let ticket;
+
+        try{
+            ticket = await this.googleClient.verifyIdToken({
+                idToken,
+                audience:this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID')
+            });
+        }
+        catch{
+            throw new UnauthorizedException(AUTH_MESSAGES.INVALID_GOOGLE_TOKEN)
+        }
+
+        const payload = ticket.getPayload();
+
+
+        if (!payload) {
+            throw new UnauthorizedException(AUTH_MESSAGES.INVALID_GOOGLE_TOKEN);
+        }
+
+        if (!payload.email_verified) {
+            throw new UnauthorizedException(AUTH_MESSAGES.GOOGLE_EMAIL_NOT_VERIFIED);
+        }
+
+        return payload;
     }
 }

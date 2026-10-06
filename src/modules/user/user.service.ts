@@ -66,6 +66,15 @@ export class UserService {
         return user;
     }
 
+    async findUserByGoogleIdOrEmail(googleId:string,email:string){
+        return this.userRepository.findOne({
+            where:[{googleId},{email}],
+            relations:{
+                profile:true
+            }
+        });
+    }
+
     async createUser(data:CreateUserData,manager?:EntityManager) : Promise<UserEntity> {
 
         const repository= manager ? manager.getRepository(UserEntity): this.userRepository
