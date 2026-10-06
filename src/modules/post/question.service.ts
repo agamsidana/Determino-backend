@@ -15,6 +15,7 @@ import { PostService } from "./post.service";
 import { ReactionType } from "./enums/reaction-type.enum";
 import { ChallengeService } from "../challenge/challenge.service";
 import { HabitGoalType } from "../challenge/enums/habit-goal-type.enum";
+import { QUESTION_MESSAGES } from "src/shared/constants/messages/question.messages";
 
 @Injectable()
 export class QuestionService {
@@ -315,7 +316,7 @@ export class QuestionService {
         });
 
         if (!post) {
-            throw new NotFoundException('question not found');
+            throw new NotFoundException(QUESTION_MESSAGES.QUESTION_NOT_FOUND);
         }
 
         return await this.dataSource.transaction(async (manager) => {
@@ -447,7 +448,7 @@ export class QuestionService {
         });
 
         if(!answer){
-            throw new NotFoundException('answer not found');
+            throw new NotFoundException(QUESTION_MESSAGES.ANSWER_NOT_FOUND);
         }
 
         const vote = this.answerVoteRepository.create({
@@ -464,14 +465,14 @@ export class QuestionService {
         }
         catch(err:any){
             if (err.code === '23505') {
-                 throw new ConflictException('answer already voted');
+                throw new ConflictException(QUESTION_MESSAGES.ANSWER_ALREAY_VOTED);
             }
            
             throw err;
         }
 
         return {
-            message:'answer vote added'
+            message:QUESTION_MESSAGES.ANSWER_VOTE_ADDED
         }
 
     }
@@ -488,11 +489,11 @@ export class QuestionService {
         });
 
         if(result.affected === 0){
-            throw new NotFoundException('vote not found')
+            throw new NotFoundException(QUESTION_MESSAGES.VOTE_NOT_FOUND)
         }
 
         return {
-            message:'answer vote removed'
+            message:QUESTION_MESSAGES.ANSWER_VOTE_REMOVED
         }
 
     }
@@ -513,11 +514,11 @@ export class QuestionService {
             });
 
             if (!answer) {
-                throw new NotFoundException('Answer not found');
+                throw new NotFoundException(QUESTION_MESSAGES.ANSWER_NOT_FOUND);
             }
 
             if (answer.post.user.id !== userId) {
-                throw new ForbiddenException('Only the question author can accept an answer');
+                throw new ForbiddenException(QUESTION_MESSAGES.AUTHOR_CAN_ACCEPT_AN_ANSWER);
             }
 
             if (answer.isAccepted) {

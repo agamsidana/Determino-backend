@@ -133,6 +133,7 @@ export class DiscoverService {
                 profile: {
                     name: `${user.profile.firstName} ${user.profile.lastName}`,
                     role: user.profile.role,
+                    bio:user.profile.bio,
                     avatar: user.profile.avatar
                 },
                 exam: {

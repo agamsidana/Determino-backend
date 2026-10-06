@@ -11,5 +11,8 @@ export const AUTH_MESSAGES = {
   VERIFICATION_CODE_SENT: 'Verification code sent successfully',
   PASSWORD_RESET_CODE_SENT: 'Password reset code sent successfully',
   VERIFICATION_CODE_EXPIRED: 'Verification code has expired',
-  PASSWORD_RESET_SUCCESSFULL: 'Password reset successfully'
+  PASSWORD_RESET_SUCCESSFULL: 'Password reset successfully',
+  GOOGLE_ACCOUNT_USE_GOOGLE_SIGNIN:'This account signs in with Google. Use the "Continue with Google" button instead',
+  INVALID_GOOGLE_TOKEN:'Invalid google token',
+  GOOGLE_EMAIL_NOT_VERIFIED:'Google email not verified'
 };

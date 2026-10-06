@@ -538,7 +538,7 @@ export class GroupService {
 
         if (!isMember) {
             throw new ForbiddenException(
-                'You are not a member of this group',
+                GROUP_MESSAGES.NOT_MEMBER_OF_GROUP,
             );
         }
 
@@ -608,11 +608,11 @@ export class GroupService {
         });
 
         if (!targetMembership) {
-            throw new NotFoundException('That user is not a member of this group');
+            throw new NotFoundException(GROUP_MESSAGES.USER_NOT_MEMBER_OF_GROUP);
         }
 
         if (targetMembership.role === GroupRole.ADMIN) {
-            throw new ConflictException('This user is already an admin');
+            throw new ConflictException(GROUP_MESSAGES.USER_ALREADY_ADMIN);
         }
 
         targetMembership.role = GroupRole.ADMIN;

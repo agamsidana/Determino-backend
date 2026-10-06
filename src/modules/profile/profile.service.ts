@@ -30,6 +30,7 @@ import { PostAttachmentType } from '../post/enums/post-attachment-type.enum';
 import { PostPollOptionEntity } from '../post/entities/post-poll-option.entity';
 import { PostPollVoteEntity } from '../post/entities/post-poll-vote.entity';
 import { PostSaveEntity } from '../post/entities/post-save.entity';
+import { PROFILE_MESSAGES } from 'src/shared/constants/messages/profile.messages';
 
 @Injectable()
 export class ProfileService {
@@ -204,7 +205,7 @@ export class ProfileService {
         if (viewerId === targetUserId) {
             return {
                 success:false,
-                message:'use my profile route'
+                message:PROFILE_MESSAGES.USE_MY_PROFILE_ROUTE
             }
         }
 
@@ -2062,7 +2063,7 @@ export class ProfileService {
 
         if (!upload) {
             throw new BadRequestException(
-                'Invalid or already used avatar upload',
+                PROFILE_MESSAGES.INVALID_AVATAR_UPLOAD,
             );
         }
 
