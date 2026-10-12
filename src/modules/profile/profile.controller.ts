@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -29,6 +29,11 @@ export class ProfileController {
         return await this.profileService.updateMyProfile(user.id,dto);
     }
 
+    @Get(':userId')
+    async getPublicProfile(@Param('userId') userId:string,@CurrentUser() user:UserEntity){
+        return await this.profileService.getPublicProfile(user.id,userId);
+    }
+
     @Get('me/post')
     async getMyPosts(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
         return await this.profileService.getMyPosts(user.id, query);
@@ -47,6 +52,16 @@ export class ProfileController {
     @Get('me/saved-question')
     async getMySavedQuestions(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
         return await this.profileService.getMySavedQuestions(user.id,query);
+    }
+
+    @Get(':userId/post')
+    async getPostsByUser(@Param('userId') profileUserId:string,@CurrentUser() viewer:UserEntity,@Query() query: PaginationQueryDto){
+        return await this.profileService.getPostsByUser(profileUserId,viewer.id,query);
+    }
+
+    @Get(':userId/question')
+    async getQuestionsByUser(@Param('userId') profileUserId:string,@CurrentUser() viewer:UserEntity,@Query() query:PaginationQueryDto){
+        return await this.profileService.getQuestionsByUser(profileUserId,viewer.id,query);
     }
 
     @Patch()

@@ -30,6 +30,7 @@ import { PostAttachmentType } from '../post/enums/post-attachment-type.enum';
 import { PostPollOptionEntity } from '../post/entities/post-poll-option.entity';
 import { PostPollVoteEntity } from '../post/entities/post-poll-vote.entity';
 import { PostSaveEntity } from '../post/entities/post-save.entity';
+import { PROFILE_MESSAGES } from 'src/shared/constants/messages/profile.messages';
 
 @Injectable()
 export class ProfileService {
@@ -197,6 +198,71 @@ export class ProfileService {
             },
         };
 
+    }
+
+    async getPublicProfile(viewerId: string, targetUserId: string) {
+        
+        if (viewerId === targetUserId) {
+            return {
+                success:false,
+                message:PROFILE_MESSAGES.USE_MY_PROFILE_ROUTE
+            }
+        }
+
+        const user = await this.userRepository.findOne({
+            where: {
+                id: targetUserId
+            },
+            relations: {
+                profile: {
+                    exam: true
+                }
+            }
+        });
+
+        if (!user) {
+            throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const [totalStudyMinutes, totalPosts, totalDoubts, totalPrepMates, connection] = await Promise.all([
+            this.studySessionService.getTotalStudyMinutes(user.id),
+            this.postService.getTotalPosts(user.id),
+            this.postService.getTotalDoubts(user.id),
+            this.connectionService.getTotalPrepMates(user.id),
+            this.connectionService.getConnectionBetweenUsers(viewerId, targetUserId)
+        ]);
+
+        return {
+            data: {
+                id: user.id,
+                createdAt: user.createdAt,
+                profile: {
+                    firstName: user.profile.firstName,
+                    lastName: user.profile.lastName,
+                    role: user.profile.role,
+                    bio: user.profile.bio,
+                    avatar: user.profile.avatar,
+                    exam: user.profile.exam
+                        ? {
+                            id: user.profile.exam.id,
+                            name: user.profile.exam.name
+                        }
+                        : null,
+                },
+                stats: {
+                    totalStudyMinutes,
+                    totalPosts,
+                    totalDoubts,
+                    totalPrepMates
+                },
+
+                connection: {
+                    status: connection.status,
+                    connectionId: connection.connectionId
+                }
+
+            }
+        }
     }
 
     async updateMyProfile(userId: string, dto: UpdateMyProfileDto) {
@@ -1581,6 +1647,378 @@ export class ProfileService {
             },
         };
     }
+    
+    async getPostsByUser(profileUserId: string, viewerId: string, query: PaginationQueryDto) {
+
+        const { page, limit } = query;
+        const skip = (page - 1) * limit;
+
+        const queryBuilder = this.postRepository
+            .createQueryBuilder('post')
+
+            .leftJoinAndSelect('post.user', 'user')
+            .leftJoinAndSelect('user.profile', 'profile')
+            .leftJoinAndSelect('profile.exam', 'exam')
+
+            .leftJoin('post.reactions', 'reaction', 'reaction.type = :reactionType', {
+                reactionType: ReactionType.HELPFUL,
+            })
+            .leftJoin('post.comments', 'comment', 'comment.isDeleted = :isDeleted', {
+                isDeleted: false
+            })
+
+            .where('post.isDeleted = :isDeleted', { isDeleted: false })
+            .andWhere('post.user.id = :profileUserId', { profileUserId })
+            .andWhere('post.type = :type', {type: PostType.POST}) 
+
+            .addSelect('COUNT(DISTINCT reaction.id)', 'helpfulCount')
+            .addSelect('COUNT(DISTINCT comment.id)', 'replyCount')
+
+            .addSelect(
+                `EXISTS (
+                SELECT 1 FROM post_reactions user_reaction
+                WHERE user_reaction."postId" = post.id
+                    AND user_reaction."userId" = :viewerId
+                    AND user_reaction.type = :reactionType
+            )`,
+                'isHelpful',
+            )
+
+            .addSelect(
+                `EXISTS (
+                SELECT 1 FROM post_saves user_save
+                WHERE user_save."postId" = post.id
+                    AND user_save."userId" = :viewerId
+            )`,
+                'isSaved',
+            )
+
+            .setParameter('viewerId', viewerId)
+
+            .orderBy('post.createdAt', 'DESC')
+
+            .groupBy('post.id')
+            .addGroupBy('user.id')
+            .addGroupBy('profile.id')
+            .addGroupBy('exam.id')
+
+            .skip(skip)
+            .take(limit);
+
+        const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+        const postIds = entities.map(post => post.id);
+
+        
+        const attachments = postIds.length
+            ? await this.postAttachmentRepository.find({
+                where: { post: { id: In(postIds) } },
+                relations: { post: true },
+            })
+            : [];
+
+        const attachmentsWithUrls = await Promise.all(
+            attachments.map(async attachment => {
+                const url = attachment.type === PostAttachmentType.LINK
+                    ? attachment.url
+                    : await this.supabaseStorageService.createDownloadUrl('post-attachments', attachment.storagePath, 60 * 60);
+                return {
+                    id: attachment.id, postId: attachment.post.id, type: attachment.type,
+                    fileName: attachment.fileName, mimeType: attachment.mimeType, fileSize: attachment.fileSize, url,
+                };
+            })
+        );
+
+        const attachmentsByPost = new Map<string, typeof attachmentsWithUrls>();
+        for (const attachment of attachmentsWithUrls) {
+            const existing = attachmentsByPost.get(attachment.postId) ?? [];
+            existing.push(attachment);
+            attachmentsByPost.set(attachment.postId, existing);
+        }
+
+        
+        const postsWithHashtags = postIds.length
+            ? await this.postRepository.find({ where: { id: In(postIds) }, relations: { hashtags: true } })
+            : [];
+        const hashtagsByPost = new Map(
+            postsWithHashtags.map((p) => [p.id, p.hashtags.map((h) => ({ id: h.id, name: h.name }))])
+        );
+
+        
+        const pollsRaw = postIds.length ? await this.postPollOptionRepository
+            .createQueryBuilder('option')
+            .innerJoin('option.postPoll', 'poll')
+            .innerJoin('poll.post', 'post')
+            .leftJoin('option.votes', 'vote')
+            .addSelect('COUNT(DISTINCT vote.id)', 'voteCount')
+            .addSelect('poll.id', 'pollId')
+            .addSelect('post.id', 'postId')
+            .where('post.id IN (:...postIds)', { postIds })
+            .groupBy('option.id').addGroupBy('poll.id').addGroupBy('post.id')
+            .orderBy('option.position', 'ASC')
+            .getRawAndEntities() : { entities: [], raw: [] };
+
+        const userVotes = postIds.length ? await this.postPollVoteRepository.find({
+            where: { user: { id: viewerId }, poll: { post: { id: In(postIds) } } },
+            relations: { option: true, poll: true }
+        }) : [];
+        const votedOptionByPoll = new Map(userVotes.map((v) => [v.poll.id, v.option.id]));
+
+        const pollByPost = new Map<string, PollResult>();
+        pollsRaw.entities.forEach((option, idx) => {
+            const raw = pollsRaw.raw[idx];
+            const existing: PollResult = pollByPost.get(raw.postId) ?? { id: raw.pollId, options: [] };
+            existing.options.push({
+                id: option.id, text: option.text, position: option.position,
+                voteCount: Number(raw.voteCount),
+                isSelected: votedOptionByPoll.get(raw.pollId) === option.id
+            });
+            pollByPost.set(raw.postId, existing);
+        });
+
+        const transformedPosts = entities.map((post, index) => ({
+            id: post.id,
+            title:post.title,
+            content: post.content,
+            type: post.type,
+            createdAt: post.createdAt,
+
+            author: {
+                id: post.user.id,
+                name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
+                exam: post.user.profile.exam?.name ?? null,
+            },
+
+            helpfulCount: Number(raw[index].helpfulCount),
+            replyCount: Number(raw[index].replyCount),
+
+            isHelpful: raw[index].isHelpful === true || raw[index].isHelpful === 'true',
+            isSaved: raw[index].isSaved === true || raw[index].isSaved === 'true',
+
+            hashtags: hashtagsByPost.get(post.id) ?? [],
+
+            poll: pollByPost.get(post.id) ?? null,
+
+            attachments: (attachmentsByPost.get(post.id) ?? []).map(a => ({
+                id: a.id, type: a.type, fileName: a.fileName, mimeType: a.mimeType, fileSize: a.fileSize, url: a.url
+            })),
+
+        }));
+
+        const total = await this.postRepository.count({
+            where: { isDeleted: false,type:PostType.POST, user: { id: profileUserId } }
+        });
+
+        return {
+            data: { posts: transformedPosts },
+            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+        }
+
+    }
+
+    async getQuestionsByUser(profileUserId: string, viewerId: string, query: PaginationQueryDto) {
+        const { page, limit } = query;
+        const skip = (page - 1) * limit;
+
+        const queryBuilder = this.postRepository
+            .createQueryBuilder('post')
+
+            .leftJoinAndSelect('post.user', 'user')
+            .leftJoinAndSelect('user.profile', 'profile')
+            .leftJoinAndSelect('profile.exam', 'exam')
+
+            .leftJoin(
+                'post.reactions',
+                'reaction',
+                'reaction.type = :reactionType',
+                {
+                    reactionType: ReactionType.HELPFUL,
+                },
+            )
+
+            .leftJoin(
+                'post.answers',
+                'answer',
+                'answer.isDeleted = :isDeleted',
+                {
+                    isDeleted: false,
+                },
+            )
+
+            .where('post.isDeleted = :isDeleted', {
+                isDeleted: false,
+            })
+
+            .andWhere('post.type = :type', {
+                type: PostType.QUESTION,
+            })
+
+            // Questions created by the profile owner
+            .andWhere('user.id = :profileUserId', {
+                profileUserId,
+            })
+
+            .addSelect(
+                'COUNT(DISTINCT reaction.id)',
+                'upvoteCount',
+            )
+
+            .addSelect(
+                'COUNT(DISTINCT answer.id)',
+                'answerCount',
+            )
+
+            // Whether the VIEWER upvoted this question
+            .addSelect(
+                `
+            EXISTS (
+                SELECT 1
+                FROM post_reactions user_reaction
+                WHERE user_reaction."postId" = post.id
+                AND user_reaction."userId" = :viewerId
+                AND user_reaction.type = :reactionType
+            )
+            `,
+                'isUpvoted',
+            )
+
+            // Whether the VIEWER saved this question
+            .addSelect(
+                `
+            EXISTS (
+                SELECT 1
+                FROM post_saves user_save
+                WHERE user_save."postId" = post.id
+                AND user_save."userId" = :viewerId
+            )
+            `,
+                'isSaved',
+            )
+
+            // Whether question has an accepted answer
+            .addSelect(
+                `
+            EXISTS (
+                SELECT 1
+                FROM question_answers qa
+                WHERE qa."postId" = post.id
+                AND qa."isAccepted" = true
+            )
+            `,
+                'hasAcceptedAnswer',
+            )
+
+            .setParameter('profileUserId', profileUserId)
+            .setParameter('viewerId', viewerId)
+            .setParameter(
+                'reactionType',
+                ReactionType.HELPFUL,
+            )
+
+            .orderBy('post.createdAt', 'DESC')
+
+            .groupBy('post.id')
+            .addGroupBy('user.id')
+            .addGroupBy('profile.id')
+            .addGroupBy('exam.id')
+
+            .skip(skip)
+            .take(limit);
+
+        const { entities, raw } =
+            await queryBuilder.getRawAndEntities();
+
+        const postIds = entities.map(
+            (post) => post.id,
+        );
+
+        // Hashtags
+        const postsWithHashtags = postIds.length
+            ? await this.postRepository.find({
+                where: {
+                    id: In(postIds),
+                },
+                relations: {
+                    hashtags: true,
+                },
+            })
+            : [];
+
+        const hashtagsByPost = new Map(
+            postsWithHashtags.map((post) => [
+                post.id,
+                post.hashtags.map((hashtag) => ({
+                    id: hashtag.id,
+                    name: hashtag.name,
+                })),
+            ]),
+        );
+
+        const transformedQuestions = entities.map(
+            (post, index) => ({
+                id: post.id,
+                title: post.title,
+                content: post.content,
+                type: post.type,
+                createdAt: post.createdAt,
+
+                author: {
+                    id: post.user.id,
+                    name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
+                    exam:
+                        post.user.profile.exam?.name ??
+                        null,
+                },
+
+                upvoteCount:
+                    Number(raw[index].upvoteCount),
+
+                isUpvoted:
+                    raw[index].isUpvoted === true ||
+                    raw[index].isUpvoted === 'true',
+
+                isSaved:
+                    raw[index].isSaved === true ||
+                    raw[index].isSaved === 'true',
+
+                answerCount:
+                    Number(raw[index].answerCount),
+
+                hasAcceptedAnswer:
+                    raw[index].hasAcceptedAnswer === true ||
+                    raw[index].hasAcceptedAnswer === 'true',
+
+                hashtags:
+                    hashtagsByPost.get(post.id) ?? [],
+            }),
+        );
+
+        const total =
+            await this.postRepository.count({
+                where: {
+                    user: {
+                        id: profileUserId,
+                    },
+                    isDeleted: false,
+                    type: PostType.QUESTION,
+                },
+            });
+
+        return {
+            data: {
+                questions: transformedQuestions,
+            },
+
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(
+                    total / limit,
+                ),
+            },
+        };
+    }
 
     async createAvatarUpload(userId: string, dto: CreateAvatarUploadDto) {
 
@@ -1625,7 +2063,7 @@ export class ProfileService {
 
         if (!upload) {
             throw new BadRequestException(
-                'Invalid or already used avatar upload',
+                PROFILE_MESSAGES.INVALID_AVATAR_UPLOAD,
             );
         }
 

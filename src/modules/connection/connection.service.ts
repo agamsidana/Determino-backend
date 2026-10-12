@@ -10,6 +10,7 @@ import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { ConversationEntity } from '../chat/entities/conversation.entity';
 import { ConversationType } from '../chat/enums/conversation-type.enum';
 import { ConversationParticipantEntity } from '../chat/entities/conversation-participant.entity';
+import { CONNECTION_MESSAGES } from 'src/shared/constants/messages/connection.messages';
 
 @Injectable()
 export class ConnectionService {
@@ -35,7 +36,7 @@ export class ConnectionService {
 
         // 1. Prevent self-request
         if (receiverId === requesterId) {
-            throw new BadRequestException('You cannot send a PrepMate request to yourself');
+            throw new BadRequestException(CONNECTION_MESSAGES.CANNOT_SEND_TO_SELF);
         }
 
         // 2. Make sure receiver exists
@@ -61,12 +62,12 @@ export class ConnectionService {
 
         // 5. Already pending
         if (existingConnection && existingConnection.status === ConnectionStatus.PENDING) {
-            throw new BadRequestException('PrepMate request is already pending');
+            throw new BadRequestException(CONNECTION_MESSAGES.REQUEST_ALREADY_PENDING);
         }
 
         // 6. Already accepted
         if (existingConnection && existingConnection.status === ConnectionStatus.ACCEPTED) {
-            throw new BadRequestException('You are already PrepMates');
+            throw new BadRequestException(CONNECTION_MESSAGES.ALREADY_PREPMATES);
         }
 
         // 7. Previously declined → resend
@@ -114,7 +115,7 @@ export class ConnectionService {
                 err.driverError?.code === '23505'
             ) {
                 throw new BadRequestException(
-                    'A PrepMate relationship already exists between these users',
+                    CONNECTION_MESSAGES.RELATIONSHIP_ALREADY_EXISTS,
                 );
             }
 
@@ -135,16 +136,16 @@ export class ConnectionService {
             }
         });
         if (!connection) {
-            throw new NotFoundException('PrepMate request not found');
+            throw new NotFoundException(CONNECTION_MESSAGES.REQUEST_NOT_FOUND);
         }
 
         if (connection.status !== ConnectionStatus.PENDING) {
-            throw new BadRequestException('Only pending PrepMate requests can be accepted');
+            throw new BadRequestException(CONNECTION_MESSAGES.ONLY_PENDING_CAN_BE_ACCEPTED);
         }
 
 
         if (connection.receiver.id !== userId) {
-            throw new ForbiddenException('You cannot accept this PrepMate request');
+            throw new ForbiddenException(CONNECTION_MESSAGES.CANNOT_ACCEPT_REQUEST);
         }
 
         return await this.dataSource.transaction(async (manager) => {
@@ -205,15 +206,15 @@ export class ConnectionService {
             }
         });
         if(!connection){
-            throw new NotFoundException('PrepMate request not found');
+            throw new NotFoundException(CONNECTION_MESSAGES.REQUEST_NOT_FOUND);
         }
 
         if (connection.status !== ConnectionStatus.PENDING) {
-            throw new BadRequestException('Only pending PrepMate requests can be declined');
+            throw new BadRequestException(CONNECTION_MESSAGES.ONLY_PENDING_CAN_BE_DECLINED);
         }
 
         if (connection.receiver.id !== userId) {
-            throw new ForbiddenException('You cannot decline this PrepMate request');
+            throw new ForbiddenException(CONNECTION_MESSAGES.CANNOT_DECLINE_REQUEST);
         }
 
         connection.status = ConnectionStatus.DECLINED;
@@ -337,15 +338,15 @@ export class ConnectionService {
         });
 
         if (!connection) {
-            throw new NotFoundException('PrepMate request not found');
+            throw new NotFoundException(CONNECTION_MESSAGES.REQUEST_NOT_FOUND);
         }
 
         if (connection.status !== ConnectionStatus.PENDING) {
-            throw new BadRequestException('Only pending PrepMate requests can be cancelled');
+            throw new BadRequestException(CONNECTION_MESSAGES.ONLY_PENDING_CAN_BE_CANCELLED);
         }
 
         if (connection.requester.id !== userId) {
-            throw new ForbiddenException('You cannot cancel this PrepMate request');
+            throw new ForbiddenException(CONNECTION_MESSAGES.CANNOT_CANCEL_REQUEST);
         }
 
         await this.prepMateConnectionRepository.remove(connection);
@@ -353,7 +354,7 @@ export class ConnectionService {
         return {
             data: {
                 id: connection.id,
-                message: 'PrepMate request cancelled successfully',
+                message: CONNECTION_MESSAGES.REQUEST_CANCELLED_SUCCESSFULLY,
             },
         };
 
@@ -375,6 +376,40 @@ export class ConnectionService {
                 { userId },
             )
             .getCount();
+    }
+
+    async getConnectionBetweenUsers(viewerId: string, targetUserId: string) {
+
+        const { userLowId, userHighId } = this.getCanonicalPair(viewerId, targetUserId);
+
+        const conn = await this.prepMateConnectionRepository.findOne({
+            where: {
+                userLow: {
+                    id: userLowId,
+                },
+                userHigh: {
+                    id: userHighId,
+                },
+            },
+            relations: { requester: true }
+        });
+
+        if (!conn) {
+            return { status: 'NONE', connectionId: null };
+        }
+
+        if (conn.status === ConnectionStatus.ACCEPTED) {
+            return { status: 'ACCEPTED', connectionId: conn.id };
+        }
+
+        if (conn.status === ConnectionStatus.PENDING) {
+            return {
+                status: conn.requester.id === viewerId ? 'PENDING_SENT' : 'PENDING_RECEIVED',
+                connectionId: conn.id,
+            };
+        }
+
+        return { status: 'NONE', connectionId: null };
     }
 
 }

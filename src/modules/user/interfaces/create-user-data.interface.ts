@@ -1,8 +1,8 @@
 export interface CreateUserData {
   email: string;
-  password: string;
+  password?: string;
+  googleId?: string;
   isEmailVerified:boolean;
-  emailVerificationCode:string;
-  emailVerificationCodeExpiresAt:Date
-
+  emailVerificationCode?:string;
+  emailVerificationCodeExpiresAt?:Date
 }

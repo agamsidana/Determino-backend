@@ -11,7 +11,6 @@ import { StudySessionModule } from './modules/study-session/study-session.module
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
 import { PostModule } from './modules/post/post.module';
 import { SupabaseModule } from './shared/supabase/supabase.module';
 import { GroupModule } from './modules/group/group.module';
@@ -19,6 +18,8 @@ import { ChatModule } from './modules/chat/chat.module';
 import { MailModule } from './modules/mail/mail.module';
 import { ChallengeModule } from './modules/challenge/challenge.module';
 import { ConnectionModule } from './modules/connection/connection.module';
+import { DiscoverModule } from './modules/discover/discover.module';
+import { UserThrottlerGuard } from './shared/guards/user-throttler.guard';
 
 @Module({
   imports: [
@@ -53,12 +54,13 @@ import { ConnectionModule } from './modules/connection/connection.module';
     ChatModule,
     MailModule,
     ChallengeModule,
-    ConnectionModule
+    ConnectionModule,
+    DiscoverModule
   ],
   controllers: [],
   providers: [{
     provide: APP_GUARD,
-    useClass: ThrottlerGuard,
+    useClass: UserThrottlerGuard,
   }],
 })
 export class AppModule { }

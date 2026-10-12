@@ -9,6 +9,7 @@ import { SystemEventType } from './enums/systemEvent-type.enum';
 import { MessageType } from './enums/message-type.enum';
 import { ConversationType } from './enums/conversation-type.enum';
 import { DirectChatQueryDto } from './dto/direct-chat-query.dto';
+import { CHAT_MESSAGES } from 'src/shared/constants/messages/chat.messages';
 
 @Injectable()
 export class ChatService {
@@ -34,7 +35,7 @@ export class ChatService {
         });
 
         if (!participant) {
-            throw new ForbiddenException('You are not a participant in this conversation');
+            throw new ForbiddenException(CHAT_MESSAGES.NOT_A_PARTICIPANT_IN_THE_CONVERSATION);
         }
 
         const message = this.messageRepository.create({
@@ -80,7 +81,7 @@ export class ChatService {
 
         if (!participant) {
             throw new ForbiddenException(
-                'You are not a participant in this conversation',
+                CHAT_MESSAGES.NOT_A_PARTICIPANT_IN_THE_CONVERSATION,
             );
         }
 
@@ -400,7 +401,7 @@ export class ChatService {
         });
 
         if (!participant) {
-            throw new ForbiddenException('You are not a participant in this conversation');
+            throw new ForbiddenException(CHAT_MESSAGES.NOT_A_PARTICIPANT_IN_THE_CONVERSATION);
         }
 
         const queryBuilder = this.messageRepository
@@ -451,7 +452,7 @@ export class ChatService {
         });
 
         if (!participant) {
-            throw new ForbiddenException('You are not a participant in this conversation');
+            throw new ForbiddenException(CHAT_MESSAGES.NOT_A_PARTICIPANT_IN_THE_CONVERSATION);
         }
 
         const message = await this.messageRepository.findOne({
@@ -468,7 +469,7 @@ export class ChatService {
         });
 
         if (!message) {
-            throw new NotFoundException('Message not found');
+            throw new NotFoundException(CHAT_MESSAGES.MESSAGE_NOT_FOUND);
         }
 
         message.isDeleted = true;

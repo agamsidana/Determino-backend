@@ -35,6 +35,9 @@ export class UserEntity {
     })
     password!: string;
 
+    @Column({ nullable: true, unique: true })
+    googleId!: string;
+
     @Column({ nullable: true })
     lastSeenAt!: Date;
 
