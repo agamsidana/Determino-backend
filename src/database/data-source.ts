@@ -1,10 +1,3 @@
-
-import * as dotenv from 'dotenv';
-
-dotenv.config({
-    path: '.env.docker',
-});
-
 import { DataSource } from 'typeorm';
 
 export const SeedDataSource = new DataSource({
