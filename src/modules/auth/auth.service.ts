@@ -342,7 +342,7 @@ export class AuthService {
         await this.userService.saveUser(user);
 
         await this.mailService.sendPasswordResetEmail(
-        "sidanaagam@gmail.com",
+        user.email,
         resetCode,
         );
 
