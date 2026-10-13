@@ -1,0 +1,45 @@
+services:
+  backend:
+    container_name: determino-backend
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    env_file:
+      - .env.production
+
+    ports:
+      - "5000:5000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17
+
+    container_name: determino-postgres
+
+    env_file:
+      - .env.production
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
