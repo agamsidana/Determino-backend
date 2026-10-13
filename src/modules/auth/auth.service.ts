@@ -50,7 +50,7 @@ export class AuthService {
                 await this.userService.saveUser(existingUser);
 
                 await this.mailService.sendVerificationEmail(
-                    'sidanaagam@gmail.com',
+                    existingUser.email,
                     verificationCode
                 );
 
@@ -88,7 +88,7 @@ export class AuthService {
         });
 
         await this.mailService.sendVerificationEmail(
-            "sidanaagam@gmail.com",
+            email,
             verificationCode,
         );
 
