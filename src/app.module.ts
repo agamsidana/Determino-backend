@@ -21,6 +21,7 @@ import { ConnectionModule } from './modules/connection/connection.module';
 import { DiscoverModule } from './modules/discover/discover.module';
 import { UserThrottlerGuard } from './shared/guards/user-throttler.guard';
 import { TimeModule } from './modules/time/time.module';
+import { ContactModule } from './modules/contact/contact.module';
 
 @Module({
   imports: [
@@ -57,7 +58,8 @@ import { TimeModule } from './modules/time/time.module';
     ChallengeModule,
     ConnectionModule,
     DiscoverModule,
-    TimeModule
+    TimeModule,
+    ContactModule
   ],
   controllers: [],
   providers: [{
