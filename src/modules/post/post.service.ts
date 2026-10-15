@@ -498,6 +498,40 @@ export class PostService {
 
     }
 
+    async getTrendingHashtags(limit = 8,days = 15){
+
+        const since = new Date(Date.now() - days*24*60*60*1000);
+
+        const rows = await this.hashtagRepository
+            .createQueryBuilder('h')
+            .innerJoin(
+                'h.posts',
+                'post',
+                'post.isDeleted = :isDeleted AND post.createdAt >= :since',
+                { isDeleted: false, since },
+            )
+            .select('h.id', 'id')
+            .addSelect('h.name', 'name')
+            .addSelect('COUNT(DISTINCT post.id)', 'postCount')
+            .groupBy('h.id')
+            .orderBy('"postCount"', 'DESC')
+            .addOrderBy('h.name', 'ASC')
+            .limit(limit)
+            .getRawMany<{ id: string; name: string; postCount: string }>();
+        
+            
+        return {
+            data: {
+                topics: rows.map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    postCount: Number(r.postCount),
+                })),
+            },
+        };
+
+    }
+
 
     async normalizeHashTags(manager: EntityManager, hashtags?: string[]): Promise<HashTagEntity[]> {
 

@@ -71,6 +71,11 @@ export class PostController {
         return await this.postService.suggestHashtags(q, limit);
     }
 
+    @Get('hashtags/trending')
+    async getTrendingHashtags(@Query('limit') limit?:string){
+        return this.postService.getTrendingHashtags(limit ? Number(limit) : undefined)
+    }
+
     @Post(':postId/comment')
     async createComment(@Param('postId') postId: string, @CurrentUser() user: UserEntity, @Body() dto: CreateCommentDto) {
         return await this.postCommentService.createComment(postId, user, dto);
