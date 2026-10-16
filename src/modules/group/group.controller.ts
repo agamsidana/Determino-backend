@@ -26,6 +26,11 @@ export class GroupController {
         return await this.groupService.getGroups(user.id,query);
     }
 
+    @Get('trending')
+    async getTrendingGroups(@CurrentUser() user:UserEntity,@Query('limit') limit?:string){
+        return await this.groupService.getTrendingGroups(limit ? Number(limit) : undefined,user.id);
+    }
+
     @Get(':groupId')
     async getGroupById(@CurrentUser() user:UserEntity,@Param('groupId') groupId:string){
         return await this.groupService.getGroupById(user.id,groupId);

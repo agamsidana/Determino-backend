@@ -21,7 +21,7 @@ import { PresenceService } from '../chat/presence.service';
 @Injectable()
 export class GroupService {
 
-    constructor(@InjectRepository(GroupEntity) private readonly groupRepository: Repository<GroupEntity>, @InjectRepository(GroupMemberEntity) private readonly groupMemberRepository: Repository<GroupMemberEntity>,private readonly presenceService:PresenceService ,private readonly dataSource: DataSource) { }
+    constructor(@InjectRepository(GroupEntity) private readonly groupRepository: Repository<GroupEntity>, @InjectRepository(GroupMemberEntity) private readonly groupMemberRepository: Repository<GroupMemberEntity>, private readonly presenceService: PresenceService, private readonly dataSource: DataSource) { }
 
     async createGroup(user: UserEntity, dto: CreateGroupDto) {
 
@@ -202,6 +202,50 @@ export class GroupService {
             pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
         }
 
+
+    }
+
+    async getTrendingGroups(limit: number = 3, userId: string) {
+
+        const safeLimit = Math.min(Math.max(limit, 1), 10);
+
+        const rows = await this.groupRepository
+            .createQueryBuilder('group')
+            .select('group.id', 'id')
+            .addSelect('group.name', 'name')
+            .addSelect('group.description', 'description')
+            .addSelect(
+                `(SELECT COUNT(*) FROM group_members gm WHERE gm."groupId" = "group".id)`,
+                'memberCount',
+            )
+            .addSelect(
+                `(SELECT c.id FROM conversations c WHERE c."groupId" = "group".id)`,
+                'conversationId',
+            )
+            .where('group.isDeleted = :isDeleted', { isDeleted: false })
+            .andWhere(
+                `NOT EXISTS (
+                SELECT 1 FROM group_members mine
+                WHERE mine."groupId" = "group".id AND mine."userId" = :userId
+            )`,
+                { userId },
+            )
+            .orderBy('"memberCount"', 'DESC')
+            .addOrderBy('group.createdAt', 'ASC')
+            .limit(safeLimit)
+            .getRawMany();
+
+        return {
+            data:{
+                groups:rows.map((group)=>({
+                    id:group.id,
+                    name:group.name,
+                    description:group.description ?? null,
+                    memberCount:Number(group.memberCount),
+                    conversationId:group.conversationId ?? null
+                })),
+            }
+        };
 
     }
 
