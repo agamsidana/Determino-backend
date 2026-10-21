@@ -8,6 +8,7 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { PaginationQueryDto } from 'src/shared/dto/pagination-query.dto';
 import { MessageGateway } from '../chat/gateway/message.gateway';
 import { UpdateGroupDto } from './dto/update-group.dto';
+import { GetGroupQueryDto } from './dto/get-group-query.dto';
 
 @Controller('group')
 @ApiBearerAuth()
@@ -22,7 +23,7 @@ export class GroupController {
     }
 
     @Get()
-    async getGroups(@CurrentUser() user:UserEntity,@Query() query:PaginationQueryDto){
+    async getGroups(@CurrentUser() user:UserEntity,@Query() query:GetGroupQueryDto){
         return await this.groupService.getGroups(user.id,query);
     }
 

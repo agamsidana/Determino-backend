@@ -17,6 +17,9 @@ import { MessageType } from '../chat/enums/message-type.enum';
 import { SystemEventType } from '../chat/enums/systemEvent-type.enum';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { PresenceService } from '../chat/presence.service';
+import { GetGroupQueryDto } from './dto/get-group-query.dto';
+import { GroupFilter } from './enums/group-filter.enum';
+import { SelectQueryBuilder } from 'typeorm/browser';
 
 @Injectable()
 export class GroupService {
@@ -127,9 +130,9 @@ export class GroupService {
 
     }
 
-    async getGroups(userId: string, query: PaginationQueryDto) {
+    async getGroups(userId: string, query: GetGroupQueryDto) {
 
-        const { page, limit } = query;
+        const { page, limit,filter } = query;
         const skip = (page - 1) * limit;
 
         const queryBuilder = this.groupRepository
@@ -177,8 +180,15 @@ export class GroupService {
             .skip(skip)
             .take(limit)
 
+        this.applyGroupFilter(queryBuilder,filter,userId);
 
         const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+        const countQb = this.groupRepository
+                        .createQueryBuilder('group')
+                        .where('group.isDeleted = :isDeleted',{isDeleted:false});
+        this.applyGroupFilter(countQb,filter,userId);
+        const total = await countQb.getCount();
 
 
         const transformedGroups = entities.map((group, idx) => ({
@@ -192,8 +202,6 @@ export class GroupService {
             myRole: raw[idx].myRole ?? null,
             conversationId: raw[idx].conversationId ?? null,
         }));
-
-        const total = await this.groupRepository.count({ where: { isDeleted: false } });
 
         return {
             data: {
@@ -669,6 +677,23 @@ export class GroupService {
                 role: GroupRole.ADMIN
             }
         }
+
+    }
+
+    private applyGroupFilter(qb:SelectQueryBuilder<GroupEntity>,filter:GroupFilter | undefined , userId:string){
+
+        if(!filter) return qb;
+
+        const memberShip = 'SELECT 1 FROM group_members gm WHERE gm."groupId" = "group".id AND gm."userId" = :filterUserId';
+
+        if(filter === GroupFilter.MY_GROUPS){
+            qb.andWhere(`EXISTS (${memberShip})`, { filterUserId: userId });
+        }
+        else{
+            qb.andWhere(`NOT EXISTS (${memberShip})`, { filterUserId: userId });
+        }
+
+        return qb;
 
     }
 
