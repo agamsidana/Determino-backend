@@ -19,6 +19,7 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OAuth2Client } from 'google-auth-library';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -395,6 +396,54 @@ export class AuthService {
                 message: AUTH_MESSAGES.PASSWORD_RESET_SUCCESSFULL,
             },
         };
+
+    }
+
+    async changePassword(dto: ChangePasswordDto, userId: string) {
+
+        const { oldPassword, newPassword } = dto;
+
+        const user = await this.userService.findUserByIdWithCredentials(userId);
+
+        if (!user) {
+            throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
+        }
+
+        if (!user.password) {
+            return {
+                data: {
+                    status: false,
+                    message: AUTH_MESSAGES.GOOGLE_SIGN_IN_NO_PASSWORD
+                }
+            }
+        }
+
+        const isPasswordCorrect = await bcrypt.compare(oldPassword, user?.password);
+
+        if (!isPasswordCorrect) {
+            throw new BadRequestException(AUTH_MESSAGES.INVALID_OLD_PASSWORD);
+        }
+
+        if (oldPassword === newPassword) {
+            throw new BadRequestException(AUTH_MESSAGES.NEWPASSWORD_MUST_BE_DIFFRENT_FROM_OLD_ONE);
+        }
+
+
+        const hashedPassword = await bcrypt.hash(newPassword, Number(this.configService.getOrThrow<number>('HASHING_SALT_ROUNDS')));
+
+        user.password = hashedPassword;
+
+        user.passwordResetCode = null as any;
+        user.passwordResetCodeExpiresAt = null as any;
+
+        await this.userService.saveUser(user);
+
+        return {
+            data: {
+                status: true,
+                message: AUTH_MESSAGES.PASSWORD_CHANGED_SUCCESSFULLY
+            }
+        }
 
     }
 

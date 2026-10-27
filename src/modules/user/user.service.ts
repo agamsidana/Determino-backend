@@ -65,6 +65,15 @@ export class UserService {
 
         return user;
     }
+    
+    async findUserByIdWithCredentials(userId:string){
+        const user = this.userRepository
+                     .createQueryBuilder('user')
+                     .addSelect('user.password')
+                     .where('user.id = :userId',{userId})
+                     .getOne();
+        return user;
+    }
 
     async findUserByGoogleIdOrEmail(googleId:string,email:string){
         return this.userRepository.findOne({

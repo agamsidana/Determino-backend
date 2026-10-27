@@ -14,6 +14,7 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -72,6 +73,13 @@ export class AuthController {
     @Post('reset-password')
     async resetPassword(@Body() dto:ResetPasswordDto){
         return await this.authService.resetPassword(dto);
+    }
+
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard)
+    @Post('change-password')
+    async chnagePassword(@Body() dto:ChangePasswordDto,@CurrentUser() user:UserEntity){
+        return await this.authService.changePassword(dto,user.id);
     }
 
 }

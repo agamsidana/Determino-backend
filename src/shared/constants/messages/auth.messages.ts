@@ -12,7 +12,11 @@ export const AUTH_MESSAGES = {
   PASSWORD_RESET_CODE_SENT: 'Password reset code sent successfully',
   VERIFICATION_CODE_EXPIRED: 'Verification code has expired',
   PASSWORD_RESET_SUCCESSFULL: 'Password reset successfully',
-  GOOGLE_ACCOUNT_USE_GOOGLE_SIGNIN:'This account signs in with Google. Use the "Continue with Google" button instead',
-  INVALID_GOOGLE_TOKEN:'Invalid google token',
-  GOOGLE_EMAIL_NOT_VERIFIED:'Google email not verified'
+  GOOGLE_ACCOUNT_USE_GOOGLE_SIGNIN: 'This account signs in with Google. Use the "Continue with Google" button instead',
+  INVALID_GOOGLE_TOKEN: 'Invalid google token',
+  GOOGLE_EMAIL_NOT_VERIFIED: 'Google email not verified',
+  INVALID_OLD_PASSWORD: 'Invalid Old password',
+  NEWPASSWORD_MUST_BE_DIFFRENT_FROM_OLD_ONE: 'New password must be different from the old one',
+  GOOGLE_SIGN_IN_NO_PASSWORD: 'This account uses Google sign-in and has no password to change',
+  PASSWORD_CHANGED_SUCCESSFULLY: 'Password changed successfully'
 };
