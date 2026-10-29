@@ -132,7 +132,7 @@ export class GroupService {
 
     async getGroups(userId: string, query: GetGroupQueryDto) {
 
-        const { page, limit,filter } = query;
+        const { page, limit,filter,search } = query;
         const skip = (page - 1) * limit;
 
         const queryBuilder = this.groupRepository
@@ -180,14 +180,14 @@ export class GroupService {
             .skip(skip)
             .take(limit)
 
-        this.applyGroupFilter(queryBuilder,filter,userId);
+        this.applyGroupFilter(queryBuilder,filter,search,userId);
 
         const { entities, raw } = await queryBuilder.getRawAndEntities();
 
         const countQb = this.groupRepository
                         .createQueryBuilder('group')
                         .where('group.isDeleted = :isDeleted',{isDeleted:false});
-        this.applyGroupFilter(countQb,filter,userId);
+        this.applyGroupFilter(countQb,filter,search,userId);
         const total = await countQb.getCount();
 
 
@@ -680,9 +680,7 @@ export class GroupService {
 
     }
 
-    private applyGroupFilter(qb:SelectQueryBuilder<GroupEntity>,filter:GroupFilter | undefined , userId:string){
-
-        if(!filter) return qb;
+    private applyGroupFilter(qb:SelectQueryBuilder<GroupEntity>,filter:GroupFilter , search:string | undefined, userId:string){
 
         const memberShip = 'SELECT 1 FROM group_members gm WHERE gm."groupId" = "group".id AND gm."userId" = :filterUserId';
 
@@ -691,6 +689,10 @@ export class GroupService {
         }
         else{
             qb.andWhere(`NOT EXISTS (${memberShip})`, { filterUserId: userId });
+        }
+
+        if(search){
+            qb.andWhere('group.name ILIKE :search',{ search: `%${search}%` })
         }
 
         return qb;

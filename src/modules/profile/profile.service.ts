@@ -175,6 +175,7 @@ export class ProfileService {
                 id: user.id,
                 email: user.email,
                 createdAt: user.createdAt,
+                isEmailVerified:user.isEmailVerified,
                 profile: {
                     firstName: user.profile.firstName,
                     lastName: user.profile.lastName,
