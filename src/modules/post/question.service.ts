@@ -176,6 +176,7 @@ export class QuestionService {
                 id: post.user.id,
                 name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
                 exam: post.user.profile.exam?.name ?? null,
+                avatar: post.user.profile?.avatar ?? null
             },
 
             upvoteCount: Number(raw[index].upvoteCount),
@@ -289,6 +290,7 @@ export class QuestionService {
                     id: post.user.id,
                     name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
                     exam: post.user.profile.exam?.name ?? null,
+                    avatar: post.user.profile?.avatar ?? null
                 },
 
                 upvoteCount: Number(row.upvoteCount),
