@@ -406,8 +406,8 @@ export class PostService {
                 author: {
                     id: post.user.id,
                     name: `${post.user.profile.firstName} ${post.user.profile.lastName}`,
-                    exam: post.user.profile.exam?.name ?? null
-
+                    exam: post.user.profile.exam?.name ?? null,
+                    avatar: post.user.profile.avatar
                 },
 
                 helpfulCount: Number(raw[index].helpfulCount),
